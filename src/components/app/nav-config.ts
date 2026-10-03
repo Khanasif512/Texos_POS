@@ -117,7 +117,7 @@ export const NAV: NavGroup[] = [
           { title: "Supplier payables", href: "/app/finance/payables", perm: "finance.view" },
         ],
       },
-      { title: "Reports", href: "/app/reports", icon: BarChart3, perm: ["reports.sales", "reports.stock", "reports.financial"] },
+      { title: "Reports", href: "/app/reports", icon: BarChart3, perm: ["reports.sales", "reports.stock", "reports.financial", "finance.cash_closing"] },
     ],
   },
   {
