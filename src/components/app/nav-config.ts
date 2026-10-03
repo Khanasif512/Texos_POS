@@ -62,6 +62,7 @@ export const NAV: NavGroup[] = [
         perm: "inventory.view",
         children: [
           { title: "Products", href: "/app/products" },
+          { title: "Categories", href: "/app/products/categories" },
           { title: "Stock by branch", href: "/app/inventory" },
           { title: "Adjustments", href: "/app/inventory/adjustments", perm: "inventory.adjust" },
           { title: "Transfers", href: "/app/inventory/transfers", perm: "inventory.transfer", feature: "multiBranchTransfer" },
