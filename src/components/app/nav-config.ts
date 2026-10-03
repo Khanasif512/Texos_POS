@@ -66,6 +66,7 @@ export const NAV: NavGroup[] = [
           { title: "Adjustments", href: "/app/inventory/adjustments", perm: "inventory.adjust" },
           { title: "Transfers", href: "/app/inventory/transfers", perm: "inventory.transfer", feature: "multiBranchTransfer" },
           { title: "Low stock", href: "/app/inventory/low-stock" },
+          { title: "Opening stock", href: "/app/inventory/opening", perm: "inventory.adjust" },
         ],
       },
       { title: "Suppliers", href: "/app/suppliers", icon: Truck, perm: "suppliers.view" },
@@ -94,7 +95,16 @@ export const NAV: NavGroup[] = [
   {
     label: "Money",
     items: [
-      { title: "Expenses", href: "/app/expenses", icon: Wallet, perm: "expenses.view" },
+      {
+        title: "Expenses",
+        href: "/app/expenses",
+        icon: Wallet,
+        perm: "expenses.view",
+        children: [
+          { title: "Daily expenses", href: "/app/expenses" },
+          { title: "Categories", href: "/app/expenses/categories", perm: "expenses.update" },
+        ],
+      },
       {
         title: "Finance",
         href: "/app/finance/cash-closing",
@@ -132,6 +142,7 @@ export const NAV: NavGroup[] = [
         children: [
           { title: "Company profile", href: "/app/settings/company", perm: "settings.company" },
           { title: "Subscription & billing", href: "/app/settings/billing", perm: "settings.billing" },
+          { title: "Notifications", href: "/app/settings/notifications" },
         ],
       },
     ],
