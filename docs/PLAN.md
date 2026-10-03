@@ -9,7 +9,7 @@ Status legend: ✅ done · 🚧 in progress · ⏳ pending
 | 2 | Master data | Suppliers (+ledger view), product categories/products/variations (INV-01), customers with credit limit & opening balance (CRM-01..03), units | ✅ |
 | 3 | LC & purchasing | LC CRUD + status flow (LC-10), cost items (LC-02), cost-distribution engine weight/qty + compare (LC-04/05) with tests on SRS §8 example, snapshots (LC-06/07), POs (PO-01..03), goods receipt → batches + stock ledger, adjustments (INV-05), branch transfers | ✅ |
 | 4 | Sales & POS | POS screen (cash/credit), FIFO deduction (SLS-02), invoice/challan print + print status (SLS-03/08), money receipts & advances (SLS-04), quotations/orders + cancel (SLS-07), invoice cancel (SLS-05), returns with approval + credit notes (SLS-06) | ✅ |
-| 5 | Finance & expenses | Expense categories/entries, LC-linked delivery charges (DLV-01, LC-09, EXP-02), supplier payments/AP (FIN-03), daily cash closing (FIN-01), P&L (FIN-02), dashboard KPIs | ⏳ |
+| 5 | Finance & expenses | Expense categories/entries, LC-linked delivery charges (DLV-01, LC-09, EXP-02), supplier payments/AP (FIN-03), daily cash closing (FIN-01), P&L (FIN-02), dashboard KPIs | ✅ |
 | 6 | Reports | All 16 reports of SRS §4.13 with date/branch filters, Excel + PDF export | ⏳ |
 | 7 | SaaS commercialisation | Plans/feature flags/limits enforcement (TEN-02..05), trial expiry & read-only lock, billing invoices, super admin: plans, tenant override/suspend/extend, impersonation (audited), MRR/churn/conversion analytics | ⏳ |
 | 8 | Polish | Bengali i18n, notifications (low stock, LC arrival, overdue credit, renewal), audit-log UI, perf indexes, backups doc | ⏳ |
