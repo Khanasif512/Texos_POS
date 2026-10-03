@@ -1,6 +1,7 @@
 // No "server-only" import: also used by prisma/seed.ts (run with tsx).
 import type { Prisma, PrismaClient } from "@/generated/prisma/client"
 import { ALL_PERMISSIONS, SYSTEM_ROLES } from "@/lib/permissions"
+import { getPlatformSetting, PLATFORM_SETTINGS } from "@/server/modules/platform/settings"
 
 type Db = PrismaClient | Prisma.TransactionClient
 
@@ -129,12 +130,13 @@ export async function provisionCompany(db: Db, input: ProvisionInput) {
   if (!plan) throw new Error("No subscription plan configured. Run the seed first.")
 
   const now = new Date()
+  const trialDays = await getPlatformSetting(PLATFORM_SETTINGS.trialDays.key, TRIAL_DAYS, db)
   await db.subscription.create({
     data: {
       companyId: company.id,
       planId: plan.id,
       status: "trialing",
-      trialEndsAt: new Date(now.getTime() + TRIAL_DAYS * 86_400_000),
+      trialEndsAt: new Date(now.getTime() + Number(trialDays) * 86_400_000),
       currentPeriodStart: now,
       isCurrent: true,
     },

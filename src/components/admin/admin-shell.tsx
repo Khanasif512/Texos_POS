@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { Building2, CreditCard, Inbox, LayoutDashboard, LogOut, Package } from "lucide-react"
+import { Building2, CreditCard, Inbox, LayoutDashboard, LogOut, Package, Settings } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { LogoMark } from "@/components/brand/logo"
 import { api } from "@/lib/api-client"
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/admin/plans", label: "Plans", icon: Package },
   { href: "/admin/billing", label: "Billing", icon: CreditCard },
   { href: "/admin/messages", label: "Contact messages", icon: Inbox },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ]
 
 export function AdminShell({ admin, children }: { admin: { name: string; email: string }; children: React.ReactNode }) {
@@ -62,9 +63,17 @@ export function AdminShell({ admin, children }: { admin: { name: string; email: 
         <header className="flex h-14 items-center gap-2 border-b bg-background px-4 md:hidden">
           <LogoMark className="size-6" />
           <span className="text-sm font-semibold">Platform admin</span>
-          <nav className="ml-auto flex gap-1">
-            {NAV.slice(0, 3).map((n) => (
-              <Link key={n.href} href={n.href} className="rounded p-2 text-muted-foreground hover:bg-muted" aria-label={n.label}>
+          <nav className="ml-auto flex gap-0.5">
+            {NAV.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                className={cn(
+                  "rounded p-2 text-muted-foreground hover:bg-muted",
+                  (n.href === "/admin" ? pathname === "/admin" : pathname.startsWith(n.href)) && "bg-muted text-foreground",
+                )}
+                aria-label={n.label}
+              >
                 <n.icon className="size-4" />
               </Link>
             ))}

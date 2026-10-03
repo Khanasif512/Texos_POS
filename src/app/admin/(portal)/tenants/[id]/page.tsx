@@ -2,14 +2,16 @@ import { notFound } from "next/navigation"
 import { PageBody, PageHeader } from "@/components/app/page-header"
 import { StatusBadge } from "@/components/shared/status-badge"
 import { TenantActions } from "@/components/admin/tenant-actions"
+import { TenantBilling } from "@/components/admin/tenant-billing"
 import { requireAdmin } from "@/server/auth/admin-context"
 import { prisma } from "@/server/db"
+import { num } from "@/server/decimal"
 import { date, dateTime } from "@/lib/format"
 
 export default async function TenantDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   await requireAdmin(`/admin/tenants/${id}`)
-  const [c, plans, logs] = await Promise.all([
+  const [c, plans, logs, invoices] = await Promise.all([
     prisma.company.findUnique({
       where: { id },
       include: {
@@ -20,6 +22,7 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
     }),
     prisma.plan.findMany({ where: { status: "active" }, orderBy: { sortOrder: "asc" } }),
     prisma.auditLog.findMany({ where: { companyId: id }, orderBy: { createdAt: "desc" }, take: 15 }),
+    prisma.billingInvoice.findMany({ where: { companyId: id }, orderBy: { issuedAt: "desc" }, take: 12 }),
   ])
   if (!c) notFound()
   const sub = c.subscriptions[0]
@@ -47,6 +50,21 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
               <p className="mt-1 font-semibold">{date(sub?.status === "trialing" ? sub.trialEndsAt : sub?.currentPeriodEnd)}</p>
             </div>
           </section>
+          <TenantBilling
+            company={{ id: c.id, name: c.name }}
+            plans={plans.map((p) => ({ id: p.id, name: p.name, priceMonthly: num(p.priceMonthly), priceYearly: num(p.priceYearly) }))}
+            invoices={invoices.map((i) => ({
+              id: i.id,
+              number: i.number,
+              description: i.description,
+              amount: num(i.amount),
+              status: i.status,
+              issuedAt: i.issuedAt.toISOString(),
+              dueAt: i.dueAt?.toISOString() ?? null,
+              paidAt: i.paidAt?.toISOString() ?? null,
+              paymentReference: i.paymentReference,
+            }))}
+          />
           <section className="rounded-xl border bg-card">
             <h2 className="border-b px-5 py-3.5 font-semibold">Users ({c.users.length})</h2>
             <ul className="divide-y text-sm">
