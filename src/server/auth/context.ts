@@ -181,6 +181,11 @@ export function requirePermission(ctx: TenantContext, ...perms: string[]) {
   if (!perms.some((p) => can(ctx, p))) throw forbidden()
 }
 
+/** Page guard: sends users without permission to a friendly 403 page instead of an error boundary. */
+export function ensurePermission(ctx: TenantContext, ...perms: string[]) {
+  if (!perms.some((p) => can(ctx, p))) redirect("/app/forbidden")
+}
+
 /** AUTH-03: branch scope check. */
 export function assertBranch(ctx: TenantContext, branchId: string | null | undefined) {
   if (!branchId || !ctx.branchIds.includes(branchId)) throw forbidden("You do not have access to this branch")
