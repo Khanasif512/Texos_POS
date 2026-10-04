@@ -141,6 +141,7 @@
   }
   html {
     @apply font-sans;
+    font-family: var(--font-sans), var(--font-bengali), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }

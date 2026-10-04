@@ -54,6 +54,8 @@ export const companySchema = z.object({
   tradeLicense: optText(80),
   binNumber: optText(80),
   invoiceFooter: optText(1000),
+  /** SLS-05: hours after sale during which non-owners may cancel an invoice */
+  cancelWindowHours: z.coerce.number().int().min(0, "0 or more").max(720, "At most 720 hours").default(24),
 })
 export type CompanyInput = z.input<typeof companySchema>
 export type CompanyOutput = z.output<typeof companySchema>

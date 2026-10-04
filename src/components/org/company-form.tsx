@@ -66,6 +66,14 @@ export function CompanyForm({ initial, workspaceId }: { initial: CompanyInput; w
           <Field label="BIN / VAT reg. no." htmlFor="binNumber" error={e.binNumber?.message}>
             <Input id="binNumber" {...register("binNumber")} />
           </Field>
+          <Field
+            label="Invoice cancel window (hours)"
+            htmlFor="cancelWindowHours"
+            error={e.cancelWindowHours?.message}
+            hint="Staff can cancel an invoice only within this time after the sale. Owners can always cancel."
+          >
+            <Input id="cancelWindowHours" type="number" min={0} max={720} {...register("cancelWindowHours")} />
+          </Field>
           <Field label="Invoice footer note" htmlFor="invoiceFooter" error={e.invoiceFooter?.message} className="sm:col-span-2">
             <Textarea id="invoiceFooter" rows={3} placeholder="e.g. Goods once sold are not returnable after 7 days." {...register("invoiceFooter")} />
           </Field>

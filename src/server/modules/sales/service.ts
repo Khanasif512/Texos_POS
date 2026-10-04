@@ -107,6 +107,7 @@ export async function createInvoice(ctx: TenantContext, input: InvoiceOutput): P
   if (input.type === "credit" && paid.gt(total)) throw validation("Paid amount cannot exceed the invoice total", "paidAmount")
   const due = total.minus(paid)
 
+  let advanceApplied = dec(0)
   const result = await prisma.$transaction(async (tx) => {
     // CRM-01 — read the balance under lock so concurrent sales cannot both pass the check
     let override: ReturnType<typeof checkCreditLimit> | null = null
@@ -282,6 +283,31 @@ export async function createInvoice(ctx: TenantContext, input: InvoiceOutput): P
         data: { status: "converted", convertedInvoiceId: invoice.id },
       })
       if (upd.count !== 1) throw businessRule(`${order.number} was converted by someone else`)
+
+      // advances taken on the order settle the new credit invoice first (ledger already holds the credit)
+      if (input.type === "credit" && due.gt(0)) {
+        let open = due
+        const advances = await tx.moneyReceipt.findMany({
+          where: { companyId, salesOrderId: order.id, isAdvance: true, cancelledAt: null },
+          include: { allocations: { select: { amount: true } } },
+          orderBy: { date: "asc" },
+        })
+        for (const r of advances) {
+          if (open.lte(0)) break
+          const left = dec(r.amount).minus(r.allocations.reduce((a, x) => a.plus(dec(x.amount)), dec(0)))
+          const take = left.lt(open) ? left : open
+          if (take.lte(0)) continue
+          await tx.receiptAllocation.create({ data: { receiptId: r.id, invoiceId: invoice.id, amount: take } })
+          open = open.minus(take)
+        }
+        const applied = due.minus(open)
+        advanceApplied = applied
+        if (applied.gt(0))
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { paidAmount: { increment: applied }, dueAmount: { decrement: applied } },
+          })
+      }
     }
 
     await audit(
@@ -335,8 +361,8 @@ export async function createInvoice(ctx: TenantContext, input: InvoiceOutput): P
     number: result.invoice.number,
     type: input.type,
     total: total.toNumber(),
-    paidAmount: paid.toNumber(),
-    dueAmount: due.toNumber(),
+    paidAmount: paid.plus(advanceApplied).toNumber(),
+    dueAmount: due.minus(advanceApplied).toNumber(),
     challanId: result.challan.id,
     challanNumber: result.challan.number,
     receiptNumber: result.receipt?.number ?? null,

@@ -131,6 +131,9 @@ async function apply(sub: SubRow, action: JobAction, report: JobReport) {
             periodEnd: action.periodEnd,
             dueAt: action.graceEndsAt,
             provider: "manual",
+            kind: "renewal",
+            planId: sub.planId,
+            billingCycle: sub.billingCycle,
           },
         })
         await systemAudit(tx, companyId, {

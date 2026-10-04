@@ -82,6 +82,20 @@ export function AsyncCombobox<T extends { id: string }>({
         <Command shouldFilter={false}>
           <CommandInput value={q} onValueChange={setQ} placeholder={searchPlaceholder} />
           <CommandList>
+            {value && !loading && (
+              <CommandGroup>
+                <CommandItem
+                  value="__clear__"
+                  onSelect={() => {
+                    onChange(null)
+                    setOpen(false)
+                  }}
+                  className="text-muted-foreground"
+                >
+                  Clear selection
+                </CommandItem>
+              </CommandGroup>
+            )}
             {loading ? (
               <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
                 <Loader2 className="size-4 animate-spin" />

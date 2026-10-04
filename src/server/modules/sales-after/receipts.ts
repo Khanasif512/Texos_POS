@@ -175,7 +175,7 @@ export async function createReceipt(ctx: TenantContext, input: ReceiptOutput) {
 export async function createAdvanceReceiptTx(
   tx: Tx,
   ctx: TenantContext,
-  args: { customerId: string; branch: { id: string; code: string }; advance: AdvanceOutput; note: string },
+  args: { customerId: string; branch: { id: string; code: string }; advance: AdvanceOutput; note: string; salesOrderId?: string },
 ) {
   const date = args.advance.date ? docDateTime(args.advance.date) : new Date()
   const amount = round2(args.advance.amount)
@@ -192,6 +192,7 @@ export async function createAdvanceReceiptTx(
       note: args.note.slice(0, 255),
       date,
       isAdvance: true,
+      salesOrderId: args.salesOrderId ?? null,
       createdById: ctx.userId,
     },
   })
@@ -275,9 +276,11 @@ export async function cancelReceipt(ctx: TenantContext, id: string, input: Cance
     await tx.moneyReceipt.update({ where: { id }, data: { cancelledAt: now, note } })
 
     // an order advance being cancelled lowers the order's advance
-    if (fresh.isAdvance && fresh.note?.startsWith(ADVANCE_NOTE_PREFIX)) {
-      const orderNo = fresh.note.slice(ADVANCE_NOTE_PREFIX.length).split(" ")[0]
-      const order = await tx.salesOrder.findFirst({ where: { companyId: ctx.companyId, number: orderNo } })
+    if (fresh.isAdvance && (fresh.salesOrderId || fresh.note?.startsWith(ADVANCE_NOTE_PREFIX))) {
+      const orderNo = fresh.note?.slice(ADVANCE_NOTE_PREFIX.length).split(" ")[0]
+      const order = await tx.salesOrder.findFirst({
+        where: fresh.salesOrderId ? { companyId: ctx.companyId, id: fresh.salesOrderId } : { companyId: ctx.companyId, number: orderNo },
+      })
       if (order) {
         const left = dec(order.advanceAmount).minus(fresh.amount)
         await tx.salesOrder.update({ where: { id: order.id }, data: { advanceAmount: left.gt(0) ? left : dec(0) } })

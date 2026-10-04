@@ -382,6 +382,9 @@ export async function recordReturnPrint(ctx: TenantContext, db: TenantDb, id: st
   const r = await db.salesReturn.findFirst({ where: { id }, select: { id: true, branchId: true } })
   if (!r) throw notFound("Return")
   assertBranch(ctx, r.branchId)
-  await db.printLog.create({ data: { companyId: ctx.companyId, docType: "return", docId: id, userId: ctx.userId } })
-  return { printed: true }
+  const [updated] = await Promise.all([
+    db.salesReturn.update({ where: { id }, data: { printCount: { increment: 1 }, lastPrintedAt: new Date() }, select: { printCount: true } }),
+    db.printLog.create({ data: { companyId: ctx.companyId, docType: "return", docId: id, userId: ctx.userId } }),
+  ])
+  return { printed: true, printCount: updated.printCount }
 }

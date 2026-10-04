@@ -103,8 +103,17 @@ function invoiceAuditData(meta: InvoiceMeta, inv: { number: string; amount: Pris
 
 export async function readInvoiceMetas(ids: string[], db: Tx | typeof prisma = prisma) {
   if (!ids.length) return new Map<string, InvoiceMeta>()
-  const rows = await db.auditLog.findMany({ where: { entityType: META_ENTITY, action: "create", entityId: { in: ids } } })
   const map = new Map<string, InvoiceMeta>()
+  const cols = await db.billingInvoice.findMany({
+    where: { id: { in: ids }, kind: { not: null } },
+    select: { id: true, kind: true, planId: true, billingCycle: true, plan: { select: { name: true } } },
+  })
+  for (const c of cols)
+    map.set(c.id, { kind: c.kind as InvoiceMeta["kind"], planId: c.planId, planName: c.plan?.name ?? null, cycle: c.billingCycle ?? "monthly" })
+  // invoices created before the columns existed keep their meta in the audit trail
+  const legacy = ids.filter((id) => !map.has(id))
+  if (!legacy.length) return map
+  const rows = await db.auditLog.findMany({ where: { entityType: META_ENTITY, action: "create", entityId: { in: legacy } } })
   for (const r of rows) {
     const a = r.after as Partial<InvoiceMeta> | null
     if (a?.kind && r.entityId) map.set(r.entityId, { kind: a.kind, planId: a.planId ?? null, planName: a.planName ?? null, cycle: a.cycle ?? "monthly" })
@@ -239,6 +248,9 @@ export async function createPlanInvoice(ctx: TenantContext, input: { planId: str
         issuedAt: now,
         dueAt: new Date(now.getTime() + Math.max(1, settings.graceDays) * DAY_MS),
         provider: billingProvider().name,
+        kind: meta.kind,
+        planId: meta.planId,
+        billingCycle: meta.cycle,
       },
     })
     await audit(ctx, { ...invoiceAuditData(meta, created), entityId: created.id }, tx)
@@ -471,6 +483,9 @@ export async function createManualInvoice(
         issuedAt: now,
         dueAt: new Date(now.getTime() + input.dueDays * DAY_MS),
         provider: "manual",
+        kind: meta.kind,
+        planId: meta.planId,
+        billingCycle: meta.cycle,
       },
     })
     await audit({ admin, companyId: company.id }, { ...invoiceAuditData(meta, created), entityId: created.id }, tx)

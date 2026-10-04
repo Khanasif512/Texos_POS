@@ -15,6 +15,8 @@ export const metadata: Metadata = { title: "Invoices" }
 const STATUSES = ["confirmed", "partially_returned", "returned", "cancelled"] as const
 type Status = (typeof STATUSES)[number]
 
+const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000)
+
 export default async function InvoicesPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
   const ctx = await requireTenant("/app/sales/invoices")
   ensurePermission(ctx, "sales.view")
@@ -24,6 +26,12 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
   const status = p.status
   const salesmanId = viewAll ? p.get("salesmanId") : undefined
   const branchId = p.branchId && ctx.branchIds.includes(p.branchId) ? p.branchId : undefined
+  let overdueBefore: Date | null = null
+  if (p.get("overdue") === "1") {
+    const c = await prisma.company.findUnique({ where: { id: ctx.companyId }, select: { settings: true } })
+    const days = Number((c?.settings as { creditDueDays?: number } | null)?.creditDueDays) || 30
+    overdueBefore = daysAgo(days)
+  }
 
   const where: Prisma.InvoiceWhereInput = {
     companyId: ctx.companyId,
@@ -33,6 +41,7 @@ export default async function InvoicesPage({ searchParams }: { searchParams: Pro
       type === "cash" || type === "credit" ? { type } : {},
       status && STATUSES.includes(status as Status) ? { status: status as Status } : {},
       salesmanId ? { salesmanId } : {},
+      overdueBefore ? { type: "credit", dueAmount: { gt: 0 }, invoiceDate: { lt: overdueBefore } } : {},
       p.from || p.to ? { invoiceDate: dateRange(p.from, p.to) } : {},
       p.q ? { OR: [{ number: { contains: p.q } }, { customerName: { contains: p.q } }, { customerPhone: { contains: p.q } }] } : {},
     ],

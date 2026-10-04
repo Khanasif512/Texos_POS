@@ -186,7 +186,9 @@ export async function deleteRole(ctx: TenantContext, db: TenantDb, id: string) {
 
 export async function updateCompany(ctx: TenantContext, input: Company) {
   const before = await prisma.company.findUnique({ where: { id: ctx.companyId } })
-  const after = await prisma.company.update({ where: { id: ctx.companyId }, data: input })
+  const { cancelWindowHours, ...fields } = input
+  const settings = { ...((before?.settings as Record<string, unknown> | null) ?? {}), cancelWindowHours }
+  const after = await prisma.company.update({ where: { id: ctx.companyId }, data: { ...fields, settings } })
   await audit(ctx, { action: "update", entityType: "company", entityId: ctx.companyId, summary: "Updated company profile", before, after })
   return after
 }

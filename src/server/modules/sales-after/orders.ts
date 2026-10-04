@@ -67,7 +67,7 @@ export async function createOrder(ctx: TenantContext, input: SalesOrderOutput) {
     let advance = null
     if (input.advance && input.type === "order" && input.customerId) {
       await lockCustomer(tx, ctx.companyId, input.customerId)
-      advance = await createAdvanceReceiptTx(tx, ctx, { customerId: input.customerId, branch, advance: input.advance, note: `${ADVANCE_NOTE_PREFIX}${number}` })
+      advance = await createAdvanceReceiptTx(tx, ctx, { customerId: input.customerId, branch, advance: input.advance, note: `${ADVANCE_NOTE_PREFIX}${number}`, salesOrderId: order.id })
       await tx.salesOrder.update({ where: { id: order.id }, data: { advanceAmount: advance.amount } })
     }
     await audit(
@@ -127,7 +127,7 @@ export async function addOrderAdvance(ctx: TenantContext, id: string, input: Adv
     if (!order.customerId) throw businessRule("This order has no customer")
     await lockCustomer(tx, ctx.companyId, order.customerId)
     const branch = await tx.branch.findUniqueOrThrow({ where: { id: order.branchId } })
-    const receipt = await createAdvanceReceiptTx(tx, ctx, { customerId: order.customerId, branch, advance: input, note: `${ADVANCE_NOTE_PREFIX}${order.number}` })
+    const receipt = await createAdvanceReceiptTx(tx, ctx, { customerId: order.customerId, branch, advance: input, note: `${ADVANCE_NOTE_PREFIX}${order.number}`, salesOrderId: order.id })
     const updated = await tx.salesOrder.update({ where: { id }, data: { advanceAmount: { increment: receipt.amount } } })
     await audit(ctx, { action: "update", entityType: "sales_order", entityId: id, summary: `Advance ${receipt.number} of ${dec(receipt.amount).toFixed(2)} on ${order.number}` }, tx)
     return { id, receipt: { id: receipt.id, number: receipt.number }, advanceAmount: num(updated.advanceAmount) }

@@ -23,6 +23,7 @@ export default async function CompanySettingsPage() {
           tradeLicense: c.tradeLicense ?? "",
           binNumber: c.binNumber ?? "",
           invoiceFooter: c.invoiceFooter ?? "",
+          cancelWindowHours: Number((c.settings as { cancelWindowHours?: number } | null)?.cancelWindowHours ?? 24),
         }}
         workspaceId={c.slug}
       />

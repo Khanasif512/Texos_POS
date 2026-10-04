@@ -32,7 +32,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const isOrder = o.type === "order"
   const today = new Date().toISOString().slice(0, 10)
   const expired = open && !!o.validUntil && o.validUntil < today
-  const advances = o.advanceAmount > 0 || isOrder ? await db.moneyReceipt.findMany({ where: { note: { startsWith: `${ADVANCE_NOTE_PREFIX}${o.number}` } }, orderBy: { date: "asc" } }) : []
+  const advances = o.advanceAmount > 0 || isOrder ? await db.moneyReceipt.findMany({ where: { OR: [{ salesOrderId: o.id }, { note: { startsWith: `${ADVANCE_NOTE_PREFIX}${o.number}` } }] }, orderBy: { date: "asc" } }) : []
   const summary = o.status === "converted" && o.customer && o.advanceAmount > 0 ? await customerDueSummary(ctx, db, o.customer.id) : null
   const kind = isOrder ? "order" : "quotation"
 

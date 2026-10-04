@@ -235,7 +235,8 @@ model Plan {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  subscriptions Subscription[]
+  subscriptions   Subscription[]
+  billingInvoices BillingInvoice[]
 
   @@map("plans")
 }
@@ -311,10 +312,15 @@ model BillingInvoice {
   paidAt           DateTime?
   provider         String               @default("manual") @db.VarChar(40)
   paymentReference String?              @db.VarChar(191)
+  /// new | change | renewal | manual
+  kind             String?              @db.VarChar(20)
+  planId           String?
+  billingCycle     BillingCycle?
   createdAt        DateTime             @default(now())
 
   company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   subscription Subscription? @relation(fields: [subscriptionId], references: [id])
+  plan         Plan?         @relation(fields: [planId], references: [id])
 
   @@index([companyId, status])
   @@map("billing_invoices")
@@ -1244,6 +1250,8 @@ model MoneyReceipt {
   note        String?       @db.VarChar(255)
   date        DateTime
   isAdvance   Boolean       @default(false)
+  /// sales order this advance was taken against
+  salesOrderId String?
   cancelledAt DateTime?
   printCount  Int           @default(0)
   createdById String?
@@ -1254,6 +1262,7 @@ model MoneyReceipt {
   @@unique([companyId, number])
   @@index([companyId, branchId, date])
   @@index([companyId, customerId])
+  @@index([salesOrderId])
   @@map("money_receipts")
 }
 
@@ -1287,6 +1296,8 @@ model SalesReturn {
   approvedById  String?
   approvedAt    DateTime?
   rejectNote    String?      @db.VarChar(255)
+  printCount    Int          @default(0)
+  lastPrintedAt DateTime?
   createdAt     DateTime     @default(now())
 
   lines SalesReturnLine[]

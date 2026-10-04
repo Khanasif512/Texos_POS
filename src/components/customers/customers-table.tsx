@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { UserPlus, Users } from "lucide-react"
@@ -31,7 +32,7 @@ const TYPE_TONE = { retail: "neutral", wholesale: "info", dealer: "primary" } as
 export function CustomersTable({ rows, total, page, limit, filtered }: { rows: CustomerRow[]; total: number; page: number; limit: number; filtered: boolean }) {
   const router = useRouter()
   const canCreate = useCan("customers.create")
-  const [adding, setAdding] = useState(false)
+  const [adding, setAdding] = useState(useSearchParams().get("new") === "1")
   return (
     <>
       <ServerTable

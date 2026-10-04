@@ -38,6 +38,8 @@ async function main() {
   await syncPermissions(prisma)
   console.log("✔ plans & permissions")
 
+  if (process.env.NODE_ENV === "production" && (!process.env.SUPER_ADMIN_EMAIL || !process.env.SUPER_ADMIN_PASSWORD))
+    throw new Error("Set SUPER_ADMIN_EMAIL and SUPER_ADMIN_PASSWORD in .env before seeding production")
   const adminEmail = process.env.SUPER_ADMIN_EMAIL ?? "admin@texonpos.test"
   if (!(await prisma.platformAdmin.findUnique({ where: { email: adminEmail } }))) {
     await prisma.platformAdmin.create({
@@ -51,6 +53,12 @@ async function main() {
   }
   console.log(`✔ super admin ${adminEmail}`)
 
+  // Demo tenant only outside production (or when SEED_DEMO=1 is set explicitly).
+  const seedDemo = process.env.SEED_DEMO === "1" || (process.env.NODE_ENV !== "production" && process.env.SEED_DEMO !== "0")
+  if (!seedDemo) {
+    console.log("• demo tenant skipped (production)")
+    return
+  }
   if (!(await prisma.user.findUnique({ where: { email: DEMO_OWNER.email } }))) {
     await prisma.$transaction(
       async (tx) => {

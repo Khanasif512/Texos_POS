@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { useRouter } from "next/navigation"
 import { Link2, Pencil, Plus, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -44,7 +45,7 @@ export function ExpensesClient({
   perms: { create: boolean; update: boolean; remove: boolean }
 }) {
   const router = useRouter()
-  const [editing, setEditing] = useState<ExpenseRowView | "new" | null>(null)
+  const [editing, setEditing] = useState<ExpenseRowView | "new" | null>(useSearchParams().get("new") === "1" ? "new" : null)
   const [deleting, setDeleting] = useState<ExpenseRowView | null>(null)
 
   const remove = async () => {
