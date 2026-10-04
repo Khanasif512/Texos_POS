@@ -12,7 +12,7 @@ Status legend: ✅ done · 🚧 in progress · ⏳ pending
 | 5 | Finance & expenses | Expense categories/entries, LC-linked delivery charges (DLV-01, LC-09, EXP-02), supplier payments/AP (FIN-03), daily cash closing (FIN-01), P&L (FIN-02), dashboard KPIs | ✅ |
 | 6 | Reports | All 16 reports of SRS §4.13 with date/branch filters, Excel + PDF export | ✅ |
 | 7 | SaaS commercialisation | Plans/feature flags/limits enforcement (TEN-02..05), trial expiry & read-only lock, billing invoices, super admin: plans, tenant override/suspend/extend, impersonation (audited), MRR/churn/conversion analytics | ✅ |
-| 8 | Polish | Bengali i18n, notifications (low stock, LC arrival, overdue credit, renewal), audit-log UI, perf indexes, backups doc | ⏳ |
+| 8 | Polish | Bengali i18n, notifications (low stock, LC arrival, overdue credit, renewal), audit-log UI, perf indexes, backups doc | ✅ |
 
 ## Phase 0 checklist
 - [x] Scaffold Next.js 16 (TS, Tailwind v4, App Router, src/) with yarn

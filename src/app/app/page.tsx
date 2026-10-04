@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server"
 import Link from "next/link"
 import {
   AlertTriangle,
@@ -53,7 +54,8 @@ export default async function DashboardPage() {
   ]
   const completed = steps.filter((s) => s.done).length
   const hour = new Date().getHours()
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"
+  const t = await getT()
+  const greeting = t(hour < 12 ? "dashboard.goodMorning" : hour < 17 ? "dashboard.goodAfternoon" : "dashboard.goodEvening")
   const scope = ctx.allBranches ? "all branches" : ctx.branches.length === 1 ? ctx.branches[0].name : `${ctx.branches.length} branches`
 
   type Kpi = { label: string; value: string; hint: string; href: string | undefined }
@@ -118,13 +120,13 @@ export default async function DashboardPage() {
   return (
     <PageBody>
       <PageHeader
-        title={`${greeting}, ${ctx.name.split(" ")[0]}`}
+        title={t("dashboard.greeting", { greeting, name: ctx.name.split(" ")[0] })}
         description={`Here's what's happening at ${ctx.company.name} today · ${scope}.`}
         actions={
           can(ctx, "sales.create") && (
             <Button asChild>
               <Link href="/app/pos">
-                <Receipt /> New sale
+                <Receipt /> {t("dashboard.newSale")}
               </Link>
             </Button>
           )

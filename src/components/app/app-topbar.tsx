@@ -17,13 +17,18 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { useT } from "@/components/i18n/i18n-provider"
+import { LanguageMenuItems } from "@/components/i18n/language-switch"
 import { api, errorMessage } from "@/lib/api-client"
 import { initials } from "@/lib/format"
 import { useApp } from "./app-context"
+import { CommandPalette } from "./command-palette"
+import { NotificationsBell } from "./notifications-bell"
 
 export function AppTopbar() {
   const ctx = useApp()
   const router = useRouter()
+  const t = useT()
   const { resolvedTheme, setTheme } = useTheme()
   const active = ctx.branches.find((b) => b.id === ctx.activeBranchId)
 
@@ -43,20 +48,20 @@ export function AppTopbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md sm:px-4">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-1.5 border-b bg-background/85 px-3 backdrop-blur-md sm:gap-2 sm:px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="mr-1 h-5" />
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-9 max-w-[220px] gap-2 px-2.5">
-            <Building className="size-4 text-muted-foreground" />
-            <span className="truncate text-sm font-medium">{active?.name ?? "No branch"}</span>
-            <ChevronsUpDown className="size-3.5 text-muted-foreground" />
+          <Button variant="ghost" className="h-9 max-w-[150px] min-w-0 gap-2 px-2 sm:max-w-[220px] sm:px-2.5">
+            <Building className="size-4 shrink-0 text-muted-foreground" />
+            <span className="truncate text-sm font-medium">{active?.name ?? t("topbar.noBranch")}</span>
+            <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-64">
-          <DropdownMenuLabel className="text-xs text-muted-foreground">Switch branch</DropdownMenuLabel>
+          <DropdownMenuLabel className="text-xs text-muted-foreground">{t("topbar.switchBranch")}</DropdownMenuLabel>
           {ctx.branches.map((b) => (
             <DropdownMenuItem key={b.id} onSelect={() => switchBranch(b.id)} className="gap-2">
               <span className="flex size-6 items-center justify-center rounded bg-muted text-[10px] font-semibold">{b.code}</span>
@@ -68,25 +73,25 @@ export function AppTopbar() {
       </DropdownMenu>
 
       <div className="ml-auto flex items-center gap-1">
+        <CommandPalette />
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Toggle theme"
+          aria-label={t("topbar.toggleTheme")}
+          className="hidden sm:inline-flex"
           onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
         >
           <Sun className="size-4 dark:hidden" />
           <Moon className="hidden size-4 dark:block" />
         </Button>
-        <Button variant="ghost" size="icon" aria-label="Notifications">
-          <Bell className="size-4" />
-        </Button>
+        <NotificationsBell />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="ml-1 h-9 gap-2 px-1.5">
+            <Button variant="ghost" className="ml-0.5 h-9 gap-2 px-1.5">
               <Avatar className="size-7">
                 <AvatarFallback className="bg-primary/10 text-[11px] font-semibold text-primary">{initials(ctx.name)}</AvatarFallback>
               </Avatar>
-              <span className="hidden max-w-[140px] truncate text-sm font-medium sm:block">{ctx.name}</span>
+              <span className="hidden max-w-[140px] truncate text-sm font-medium md:block">{ctx.name}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
@@ -98,19 +103,30 @@ export function AppTopbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
               <Link href="/app/profile">
-                <UserRound /> My profile
+                <UserRound /> {t("topbar.myProfile")}
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/app/settings/notifications">
+                <Bell /> {t("topbar.notificationSettings")}
               </Link>
             </DropdownMenuItem>
             {ctx.isOwner && (
               <DropdownMenuItem asChild>
                 <Link href="/app/settings/company">
-                  <Settings /> Company settings
+                  <Settings /> {t("topbar.companySettings")}
                 </Link>
               </DropdownMenuItem>
             )}
+            <DropdownMenuItem className="sm:hidden" onSelect={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>
+              <Sun className="dark:hidden" />
+              <Moon className="hidden dark:block" /> {t("topbar.toggleTheme")}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <LanguageMenuItems />
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={logout} variant="destructive">
-              <LogOut /> Sign out
+              <LogOut /> {t("topbar.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

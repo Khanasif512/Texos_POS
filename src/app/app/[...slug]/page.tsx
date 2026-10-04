@@ -1,36 +1,25 @@
-import { Construction } from "lucide-react"
-import { PageBody, PageHeader } from "@/components/app/page-header"
+import Link from "next/link"
+import { Compass } from "lucide-react"
+import { PageBody } from "@/components/app/page-header"
 import { EmptyState } from "@/components/shared/empty-state"
+import { Button } from "@/components/ui/button"
 import { requireTenant } from "@/server/auth/context"
 
-const PHASE: Record<string, { title: string; phase: number }> = {
-  pos: { title: "Point of sale", phase: 4 },
-  lc: { title: "LC management", phase: 3 },
-  purchases: { title: "Purchasing", phase: 3 },
-  products: { title: "Products", phase: 2 },
-  inventory: { title: "Inventory", phase: 3 },
-  suppliers: { title: "Suppliers", phase: 2 },
-  customers: { title: "Customers", phase: 2 },
-  sales: { title: "Sales", phase: 4 },
-  expenses: { title: "Expenses", phase: 5 },
-  finance: { title: "Finance", phase: 5 },
-  reports: { title: "Reports", phase: 6 },
-  org: { title: "Organization", phase: 1 },
-  settings: { title: "Settings", phase: 7 },
-}
-
-/** Placeholder for modules scheduled in later phases (docs/PLAN.md). */
-export default async function UpcomingModulePage({ params }: { params: Promise<{ slug: string[] }> }) {
+/** Unknown /app/* route: friendly not-found inside the app shell (every nav entry has a real page now). */
+export default async function UnknownAppPage({ params }: { params: Promise<{ slug: string[] }> }) {
   const { slug } = await params
   await requireTenant(`/app/${slug.join("/")}`)
-  const info = PHASE[slug[0]] ?? { title: "Page", phase: 8 }
   return (
     <PageBody>
-      <PageHeader title={info.title} />
       <EmptyState
-        icon={Construction}
-        title="This module is on its way"
-        text={`${info.title} is scheduled for implementation phase ${info.phase}. Everything you set up now will be available to it.`}
+        icon={Compass}
+        title="Page not found"
+        text="This page doesn't exist or has moved. Use the sidebar or press Ctrl+K to search."
+        action={
+          <Button asChild>
+            <Link href="/app">Back to dashboard</Link>
+          </Button>
+        }
       />
     </PageBody>
   )

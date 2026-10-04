@@ -1,44 +1,68 @@
 import type { Metadata } from "next"
-import { History } from "lucide-react"
 import { PageBody, PageHeader } from "@/components/app/page-header"
-import { EmptyState } from "@/components/shared/empty-state"
-import { StatusBadge } from "@/components/shared/status-badge"
+import type { Prisma } from "@/generated/prisma/client"
 import { ensurePermission, requireTenant } from "@/server/auth/context"
 import { prisma } from "@/server/db"
-import { dateTime } from "@/lib/format"
+import { dateRange, readListParams, type ListSearchParams } from "@/server/list"
+import { AuditTable, type AuditRow } from "./audit-table"
 
 export const metadata: Metadata = { title: "Audit log" }
 
-const TONE = { create: "success", update: "info", delete: "danger" } as const
-
-export default async function AuditPage() {
+export default async function AuditPage({ searchParams }: { searchParams: Promise<ListSearchParams> }) {
   const ctx = await requireTenant("/app/org/audit")
   ensurePermission(ctx, "org.audit")
-  const logs = await prisma.auditLog.findMany({ where: { companyId: ctx.companyId }, orderBy: { createdAt: "desc" }, take: 200 })
+  const p = readListParams(await searchParams, { sortable: ["createdAt", "entityType", "action", "actorName"], defaultSort: "createdAt:desc", pageSize: 25 })
+  const entity = p.get("entity")
+  const action = p.get("action")
+  const actor = p.get("actor")
+
+  const base: Prisma.AuditLogWhereInput = { companyId: ctx.companyId }
+  const where: Prisma.AuditLogWhereInput = {
+    ...base,
+    ...(entity ? { entityType: entity } : {}),
+    ...(action ? { action } : {}),
+    ...(actor ? (actor === "platform" ? { actorType: "admin" } : { actorId: actor }) : {}),
+    ...(p.from || p.to ? { createdAt: dateRange(p.from, p.to) } : {}),
+    ...(p.q ? { OR: [{ summary: { contains: p.q } }, { entityId: p.q }, { actorName: { contains: p.q } }] } : {}),
+  }
+
+  const [rows, total, entities, actions, actors] = await Promise.all([
+    prisma.auditLog.findMany({ where, orderBy: [p.orderBy, { id: "desc" }], skip: p.skip, take: p.take }),
+    prisma.auditLog.count({ where }),
+    prisma.auditLog.groupBy({ by: ["entityType"], where: base, orderBy: { entityType: "asc" } }),
+    prisma.auditLog.groupBy({ by: ["action"], where: base, orderBy: { action: "asc" } }),
+    prisma.auditLog.groupBy({ by: ["actorId", "actorName"], where: { ...base, actorType: "user" }, orderBy: { actorName: "asc" } }),
+  ])
+
+  const data: AuditRow[] = rows.map((l) => ({
+    id: l.id,
+    createdAt: l.createdAt.toISOString(),
+    actorType: l.actorType,
+    actorName: l.actorName,
+    action: l.action,
+    entityType: l.entityType,
+    entityId: l.entityId,
+    summary: l.summary,
+    ip: l.ip,
+    before: l.before ?? null,
+    after: l.after ?? null,
+  }))
+
   return (
     <PageBody>
-      <PageHeader title="Audit log" description="The latest 200 changes to sensitive records in your workspace." />
-      {logs.length === 0 ? (
-        <EmptyState icon={History} title="No activity yet" text="Changes to branches, employees, roles, LCs, invoices and expenses will appear here." />
-      ) : (
-        <div className="overflow-hidden rounded-xl border bg-card">
-          <ul className="divide-y">
-            {logs.map((l) => (
-              <li key={l.id} className="flex flex-col gap-1 px-5 py-3.5 sm:flex-row sm:items-center sm:gap-4">
-                <span className="w-40 shrink-0 text-xs text-muted-foreground">{dateTime(l.createdAt)}</span>
-                <StatusBadge tone={TONE[l.action as keyof typeof TONE] ?? "neutral"} className="w-fit capitalize">
-                  {l.action}
-                </StatusBadge>
-                <span className="flex-1 text-sm">{l.summary ?? `${l.action} ${l.entityType}`}</span>
-                <span className="text-xs text-muted-foreground">
-                  {l.actorName}
-                  {l.actorType === "admin" && " (platform)"}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <PageHeader title="Audit log" description="Every change to financial and access-control records — who, what, before and after (AUD-01)." />
+      <AuditTable
+        rows={data}
+        total={total}
+        page={p.page}
+        limit={p.limit}
+        entities={entities.map((e) => e.entityType)}
+        actions={actions.map((a) => a.action)}
+        actors={[
+          ...actors.filter((a) => a.actorId).map((a) => ({ value: a.actorId!, label: a.actorName ?? "Unknown user" })),
+          { value: "platform", label: "Platform support" },
+        ]}
+      />
     </PageBody>
   )
 }
