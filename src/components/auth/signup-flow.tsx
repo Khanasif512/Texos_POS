@@ -15,16 +15,26 @@ import { PasswordInput } from "@/components/auth/password-input"
 import { api, applyFieldErrors, errorMessage } from "@/lib/api-client"
 import { signupSchema, type SignupInput } from "@/lib/validation/public"
 
+type SignupResponse = { verificationRequired: true; verificationId: string; email: string } | { verificationRequired: false; email: string }
+
 export function SignupFlow() {
   const params = useSearchParams()
+  const router = useRouter()
   const plan = params.get("plan") ?? undefined
   const [pending, setPending] = useState<{ verificationId: string; email: string } | null>(null)
 
+  const onSubmitted = (res: SignupResponse) => {
+    if (res.verificationRequired) return setPending({ verificationId: res.verificationId, email: res.email })
+    toast.success("Your workspace is ready")
+    router.replace("/app")
+    router.refresh()
+  }
+
   if (pending) return <OtpStep {...pending} plan={plan} onBack={() => setPending(null)} />
-  return <DetailsStep plan={plan} onSent={setPending} />
+  return <DetailsStep plan={plan} onSent={onSubmitted} />
 }
 
-function DetailsStep({ plan, onSent }: { plan?: string; onSent: (v: { verificationId: string; email: string }) => void }) {
+function DetailsStep({ plan, onSent }: { plan?: string; onSent: (v: SignupResponse) => void }) {
   const { register, handleSubmit, formState, setError } = useForm<SignupInput>({ resolver: zodResolver(signupSchema) })
   const e = formState.errors
   const onSubmit = handleSubmit(async (values) => {

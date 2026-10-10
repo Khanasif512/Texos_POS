@@ -124,6 +124,9 @@ SMTP_USER="no-reply@example.com"
 SMTP_PASS="<smtp-password>"
 MAIL_FROM="TexonPOS <no-reply@example.com>"
 
+# TODO: set to "true" once the SMTP credentials are ready and before going to actual production (default "false" skips the signup email OTP)
+SIGNUP_OTP_REQUIRED="true"
+
 # প্রথম seed এ platform super admin তৈরি হবে
 SUPER_ADMIN_EMAIL="you@example.com"
 SUPER_ADMIN_PASSWORD="<strong-password>"

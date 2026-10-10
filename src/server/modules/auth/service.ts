@@ -17,12 +17,30 @@ const appUrl = () => process.env.APP_URL ?? "http://localhost:3000"
 
 // ───────── Signup (TEN-01) ─────────
 
+const otpRequired = () => process.env.SIGNUP_OTP_REQUIRED === "true"
+
+const otpDisabled = () => new AppError("BUSINESS_RULE", "Email verification is turned off.")
+
 export async function startSignup(input: SignupInput) {
   const email = input.email.toLowerCase()
   if (await prisma.user.findUnique({ where: { email }, select: { id: true } }))
     throw new AppError("CONFLICT", "An account with this email already exists. Try signing in.", {
       fields: { email: "This email is already registered" },
     })
+
+  if (!otpRequired()) {
+    await createWorkspace(
+      {
+        email,
+        companyName: input.companyName,
+        ownerName: input.ownerName,
+        phone: input.phone || null,
+        passwordHash: await hashPassword(input.password),
+      },
+      input.plan,
+    )
+    return { verificationRequired: false as const, email }
+  }
 
   const otp = generateOtp()
   const v = await prisma.emailVerification.create({
@@ -37,10 +55,11 @@ export async function startSignup(input: SignupInput) {
     },
   })
   await sendOtpMail(email, input.ownerName, otp)
-  return { verificationId: v.id, email }
+  return { verificationRequired: true as const, verificationId: v.id, email }
 }
 
 export async function resendOtp(verificationId: string) {
+  if (!otpRequired()) throw otpDisabled()
   const v = await prisma.emailVerification.findUnique({ where: { id: verificationId } })
   if (!v || v.verifiedAt) throw new AppError("NOT_FOUND", "This signup request is no longer valid. Please start again.")
   const otp = generateOtp()
@@ -66,6 +85,7 @@ async function sendOtpMail(email: string, name: string, otp: string) {
 }
 
 export async function verifySignup(verificationId: string, otp: string, planCode?: string) {
+  if (!otpRequired()) throw otpDisabled()
   const v = await prisma.emailVerification.findUnique({ where: { id: verificationId } })
   if (!v || v.verifiedAt) throw new AppError("NOT_FOUND", "This signup request is no longer valid. Please start again.")
   if (v.expiresAt < new Date()) throw new AppError("BUSINESS_RULE", "The code has expired. Request a new one.")
@@ -77,9 +97,15 @@ export async function verifySignup(verificationId: string, otp: string, planCode
   if (await prisma.user.findUnique({ where: { email: v.email }, select: { id: true } }))
     throw new AppError("CONFLICT", "An account with this email already exists. Try signing in.")
 
+  return createWorkspace(v, planCode, v.id)
+}
+
+type WorkspaceOwner = { email: string; companyName: string; ownerName: string; phone: string | null; passwordHash: string }
+
+async function createWorkspace(v: WorkspaceOwner, planCode?: string, verificationId?: string) {
   const { company, owner } = await prisma.$transaction(
     async (tx) => {
-      await tx.emailVerification.update({ where: { id: v.id }, data: { verifiedAt: new Date() } })
+      if (verificationId) await tx.emailVerification.update({ where: { id: verificationId }, data: { verifiedAt: new Date() } })
       return provisionCompany(tx, {
         companyName: v.companyName,
         email: v.email,
