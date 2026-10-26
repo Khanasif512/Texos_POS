@@ -51,13 +51,13 @@ export function CreateTenantForm({ plans }: { plans: Plan[] }) {
           <Input id="ownerName" autoComplete="name" {...register("ownerName")} />
         </Field>
         <Field label="Owner email" htmlFor="email" error={errors.email?.message} required>
-          <Input id="email" type="email" autoComplete="email" placeholder="asif@gmail.com" {...register("email")} />
+          <Input id="email" type="email" autoComplete="email" placeholder="example@gmail.com" {...register("email")} />
         </Field>
         <Field label="Phone (optional)" htmlFor="phone" error={errors.phone?.message}>
           <Input id="phone" autoComplete="tel" placeholder="+8801…" {...register("phone")} />
         </Field>
         <Field label="Initial password" htmlFor="password" error={errors.password?.message} required className="sm:col-span-2">
-          <PasswordInput id="password" placeholder="At least 8 characters and a number" autoComplete="new-password" {...register("password")} />
+          <PasswordInput id="password" placeholder="At least 8 characters including a letter and a number" autoComplete="new-password" {...register("password")} />
         </Field>
         <Field label="Trial plan" htmlFor="plan" error={errors.plan?.message} hint="The tenant will start with a trial subscription." className="sm:col-span-2">
           <Select
