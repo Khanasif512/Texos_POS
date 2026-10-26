@@ -1,6 +1,9 @@
 import type { Metadata } from "next"
+import Link from "next/link"
+import { Plus } from "lucide-react"
 import { PageBody, PageHeader } from "@/components/app/page-header"
 import { TenantsTable } from "@/components/admin/tenants-table"
+import { Button } from "@/components/ui/button"
 import { requireAdmin } from "@/server/auth/admin-context"
 import { prisma } from "@/server/db"
 
@@ -14,7 +17,17 @@ export default async function TenantsPage() {
   })
   return (
     <PageBody>
-      <PageHeader title="Tenants" description={`${companies.length} companies on the platform.`} />
+      <PageHeader
+        title="Tenants"
+        description={`${companies.length} companies on the platform.`}
+        actions={
+          <Button asChild>
+            <Link href="/admin/tenants/new">
+              <Plus /> Create Tenants
+            </Link>
+          </Button>
+        }
+      />
       <TenantsTable
         rows={companies.map((c) => ({
           id: c.id,
