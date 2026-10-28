@@ -1,5 +1,6 @@
 import { ok, parseBody } from "@/server/api"
 import { tenantRoute } from "@/server/route"
+import { idempotent } from "@/server/idempotency"
 import { deleteProduct, getProductDetail, updateProduct } from "@/server/modules/products/service"
 import { productSchema } from "@/lib/validation/products"
 
@@ -11,8 +12,11 @@ export const GET = tenantRoute({ perm: "inventory.view" }, async ({ ctx, db, par
  * missing rows are deleted (only when they have no stock or history).
  */
 export const PATCH = tenantRoute({ perm: "inventory.update" }, async ({ req, ctx, db, params }) => {
-  const res = await updateProduct(ctx, db, params.id, await parseBody(req, productSchema))
-  return ok(res, { message: "Product updated" })
+  const input = await parseBody(req, productSchema)
+  return idempotent(req, ctx.companyId, "products.update", async () => ({
+    data: await updateProduct(ctx, db, params.id, input),
+    message: "Product updated",
+  }))
 })
 
 export const DELETE = tenantRoute({ perm: "inventory.delete" }, async ({ ctx, db, params }) => {

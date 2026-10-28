@@ -15,7 +15,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   ensurePermission(ctx, "inventory.update")
   const db = tenantDb(ctx.companyId)
   const [data, categories, brands] = await Promise.all([
-    getProductForEdit(db, id).catch((e) => {
+    getProductForEdit(ctx, db, id).catch((e) => {
       if (e instanceof AppError && e.code === "NOT_FOUND") notFound()
       throw e
     }),
@@ -25,7 +25,7 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   return (
     <PageBody>
       <PageHeader back={{ href: `/app/products/${id}`, label: data.values.name }} title={`Edit ${data.values.name}`} description="Variations with stock or history can be deactivated but not removed." />
-      <ProductForm productId={id} initial={data.values} locks={data.locks} categories={categories} brands={brands} />
+      <ProductForm productId={id} initial={data.values} currentStock={data.currentStock} locks={data.locks} categories={categories} brands={brands} />
     </PageBody>
   )
 }

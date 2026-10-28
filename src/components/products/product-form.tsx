@@ -5,7 +5,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Controller, useFieldArray, useForm, useWatch, type Control } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Check, ChevronDown, Loader2, Lock, Plus, Trash2, X } from "lucide-react"
+import { Loader2, Lock, Plus, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Field } from "@/components/shared/field"
 import { api, ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client"
+import { useCan } from "@/components/app/app-context"
+import { quantity } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   PRODUCT_UNITS,
@@ -38,24 +40,30 @@ const blankVariation = (): VariationInput => ({
   salePrice: 0,
   wholesalePrice: "",
   reorderLevel: 0,
+  openingQuantity: "",
+  openingUnitCost: "",
   status: "active",
 })
 
 export function ProductForm({
   productId,
   initial,
+  currentStock = {},
   locks = {},
   categories: initialCategories,
   brands,
 }: {
   productId?: string
   initial?: ProductInput
+  currentStock?: Record<string, number>
   /** variationId → reason it cannot be removed */
   locks?: Record<string, string>
   categories: CategoryOption[]
   brands: string[]
 }) {
   const router = useRouter()
+  const canPostOpeningStock = useCan("inventory.adjust")
+  const [idempotencyKey] = useState(() => crypto.randomUUID())
   const [categories, setCategories] = useState(initialCategories)
   const [newCategory, setNewCategory] = useState(false)
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -63,11 +71,18 @@ export function ProductForm({
   const imageInputRef = useRef<HTMLInputElement>(null)
   const { register, handleSubmit, formState, setError, control, setValue } = useForm<ProductInput, unknown, ProductOutput>({
     resolver: zodResolver(productSchema),
-    defaultValues: initial ?? { name: "", categoryId: "none", unit: "pcs", status: "active", variations: [blankVariation()] },
+    defaultValues: initial ?? {
+      name: "",
+      categoryId: "none",
+      unit: "pcs",
+      status: "active",
+      variations: [blankVariation()],
+    },
   })
   const { fields, append, remove } = useFieldArray({ control, name: "variations", keyName: "key" })
   const e = formState.errors
   const imageUrl = useWatch({ control, name: "imageUrl" })
+  const variationValues = useWatch({ control, name: "variations" }) ?? []
 
   useEffect(() => {
     return () => {
@@ -85,12 +100,16 @@ export function ProductForm({
         productValues = { ...v, imageUrl: uploaded.imageUrl }
       }
       if (productId) {
-        await api.patch(`/api/v1/products/${productId}`, productValues)
-        toast.success("Product saved")
+        const res = await api.patch<{ openingStock: { variations: number; units: string } | null }>(
+          `/api/v1/products/${productId}`,
+          productValues,
+          { idempotencyKey },
+        )
+        toast.success(res.openingStock ? `Product saved · stock updated for ${res.openingStock.variations} variation(s)` : "Product saved")
         router.push(`/app/products/${productId}`)
       } else {
-        const res = await api.post<{ id: string }>("/api/v1/products", productValues)
-        toast.success("Product created")
+        const res = await api.post<{ id: string; openingStock: { variations: number; units: string } | null }>("/api/v1/products", productValues, { idempotencyKey })
+        toast.success(res.openingStock ? `Product created · ${res.openingStock.variations} variation(s), ${res.openingStock.units} opening units posted` : "Product created")
         router.push(`/app/products/${res.id}`)
       }
       router.refresh()
@@ -163,11 +182,25 @@ export function ProductForm({
               )}
             />
           </Field>
-          <Field label="Brand" htmlFor="p-brand" error={e.brand?.message}>
+          <Field label="Brand" error={e.brand?.message}>
             <Controller
               control={control}
               name="brand"
-              render={({ field }) => <BrandCombobox value={field.value ?? ""} onChange={field.onChange} brands={brands} />}
+              render={({ field }) => (
+                <Select value={field.value || "none"} onValueChange={(value) => field.onChange(value === "none" ? "" : value)}>
+                  <SelectTrigger id="p-brand" className="w-full">
+                    <SelectValue placeholder="Choose a brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No brand</SelectItem>
+                    {brands.map((brand) => (
+                      <SelectItem key={brand} value={brand}>
+                        {brand}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             />
           </Field>
           <Field label="Product image" htmlFor="p-image" error={e.imageUrl?.message}>
@@ -213,6 +246,50 @@ export function ProductForm({
               Choose a PNG, JPEG, or WebP image up to 5 MB.
             </p>
           </Field>
+          {canPostOpeningStock && (
+            <section className="space-y-4 rounded-lg border p-4 sm:col-span-2 lg:col-span-3">
+              <div>
+                <h3 className="text-sm font-semibold">Opening stocks</h3>
+                <p className="text-xs text-muted-foreground">
+                  {productId
+                    ? "Optional: set the total stock quantity for each variation at the active branch. Leave blank to keep current stock unchanged."
+                    : "Optional starting quantity and unit cost for each variation at the active branch."}
+                </p>
+              </div>
+              <div className="space-y-3">
+                {fields.map((field, index) => (
+                  <div key={field.key} className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(120px,0.6fr)_minmax(140px,0.7fr)] sm:items-end">
+                    <div className="pb-2">
+                      <p className="truncate text-sm font-medium">{variationValues[index]?.name?.trim() || `Variation ${index + 1}`}</p>
+                      {productId && <p className="mt-1 text-xs text-muted-foreground">Current stock at active branch: {quantity(currentStock[field.id ?? ""] ?? 0)}</p>}
+                    </div>
+                    <Field label={productId ? "Set stock quantity" : "Opening quantity"} error={e.variations?.[index]?.openingQuantity?.message}>
+                      <Input
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        inputMode="decimal"
+                        placeholder={productId ? "Target quantity" : "0"}
+                        aria-label={`${productId ? "Target stock quantity" : "Opening quantity"} for variation ${index + 1}`}
+                        {...register(`variations.${index}.openingQuantity`)}
+                      />
+                    </Field>
+                    <Field label="Unit cost (৳)" error={e.variations?.[index]?.openingUnitCost?.message}>
+                      <Input
+                        type="number"
+                        step="0.0001"
+                        min="0"
+                        inputMode="decimal"
+                        placeholder="Required when quantity is entered"
+                        aria-label={`Opening unit cost for variation ${index + 1}`}
+                        {...register(`variations.${index}.openingUnitCost`)}
+                      />
+                    </Field>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
           <Field label="Description" htmlFor="p-desc" error={e.description?.message} className="sm:col-span-2 lg:col-span-3">
             <Textarea id="p-desc" rows={2} {...register("description")} />
           </Field>
@@ -361,101 +438,6 @@ export function ProductForm({
         />
       )}
     </form>
-  )
-}
-
-function BrandCombobox({ value, onChange, brands }: { value: string; onChange: (value: string) => void; brands: string[] }) {
-  const [open, setOpen] = useState(false)
-  const [activeIndex, setActiveIndex] = useState(-1)
-  const options = brands.filter((brand) => brand.toLowerCase().includes(value.trim().toLowerCase()))
-
-  return (
-    <div
-      className="relative"
-      onBlur={(event) => {
-        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) setOpen(false)
-      }}
-    >
-      <Input
-        id="p-brand"
-        role="combobox"
-        aria-autocomplete="list"
-        aria-expanded={open}
-        aria-controls="product-brand-options"
-        aria-activedescendant={open && options[activeIndex] ? `product-brand-option-${activeIndex}` : undefined}
-        placeholder="Select or enter a brand"
-        value={value}
-        onChange={(event) => {
-          onChange(event.target.value)
-          setActiveIndex(-1)
-          setOpen(true)
-        }}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(event) => {
-          if (event.key === "ArrowDown") {
-            event.preventDefault()
-            setOpen(true)
-            setActiveIndex((index) => Math.min(index + 1, options.length - 1))
-          } else if (event.key === "ArrowUp") {
-            event.preventDefault()
-            setOpen(true)
-            setActiveIndex((index) => Math.max(index - 1, 0))
-          } else if (event.key === "Enter" && open && activeIndex >= 0 && options[activeIndex]) {
-            event.preventDefault()
-            onChange(options[activeIndex])
-            setOpen(false)
-          } else if (event.key === "Escape") {
-            setOpen(false)
-          }
-        }}
-      />
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        aria-label={open ? "Hide brand options" : "Show brand options"}
-        aria-expanded={open}
-        className="absolute right-0.5 top-0.5 text-muted-foreground"
-        onMouseDown={(event) => event.preventDefault()}
-        onClick={() => setOpen((isOpen) => !isOpen)}
-      >
-        <ChevronDown />
-      </Button>
-      {open && (
-        <div
-          id="product-brand-options"
-          role="listbox"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
-        >
-          {options.length ? (
-            options.map((brand, index) => (
-              <button
-                key={brand}
-                id={`product-brand-option-${index}`}
-                type="button"
-                role="option"
-                aria-selected={brand === value}
-                className={cn(
-                  "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none hover:bg-accent",
-                  index === activeIndex && "bg-accent",
-                )}
-                onMouseDown={(event) => event.preventDefault()}
-                onMouseEnter={() => setActiveIndex(index)}
-                onClick={() => {
-                  onChange(brand)
-                  setOpen(false)
-                }}
-              >
-                <Check className={cn("size-4", brand === value ? "opacity-100" : "opacity-0")} />
-                <span className="truncate">{brand}</span>
-              </button>
-            ))
-          ) : (
-            <p className="px-2 py-2 text-sm text-muted-foreground">No matching brands. Your text will be saved as a new brand.</p>
-          )}
-        </div>
-      )}
-    </div>
   )
 }
 

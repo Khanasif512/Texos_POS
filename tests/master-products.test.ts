@@ -34,7 +34,36 @@ describe("product schema (INV-01)", () => {
       variations: [{ name: "6-inch", sku: " alu-6 ", salePrice: "450", wholesalePrice: "", unitWeight: "0.5" }],
     })
     expect(v.categoryId).toBeNull()
-    expect(v.variations[0]).toMatchObject({ sku: "ALU-6", salePrice: 450, wholesalePrice: null, unitWeight: 0.5, reorderLevel: 0, status: "active" })
+    expect(v.variations[0]).toMatchObject({ sku: "ALU-6", barcode: null, salePrice: 450, wholesalePrice: null, unitWeight: 0.5, reorderLevel: 0, status: "active" })
+    expect(productSchema.parse({ ...v, variations: [{ ...v.variations[0], barcode: null }] }).variations[0].barcode).toBeNull()
+  })
+  it("accepts opening stock per variation when branch, quantity, and cost are provided", () => {
+    const v = productSchema.parse({
+      ...base,
+      variations: [{ name: "6-inch", openingQuantity: "12.5", openingUnitCost: "450" }],
+    })
+    expect(v.variations[0]).toMatchObject({ openingQuantity: 12.5, openingUnitCost: 450 })
+  })
+  it("requires a unit cost for opening stock quantities", () => {
+    const missingCost = productSchema.safeParse({
+      ...base,
+      variations: [{ name: "6-inch", openingQuantity: "2" }],
+    })
+    expect(missingCost.success).toBe(false)
+    expect(missingCost.error?.issues.map((issue) => issue.path.join("."))).toContain("variations.0.openingUnitCost")
+  })
+  it("allows setting an edited variation's stock target to zero", () => {
+    const result = productSchema.safeParse({
+      ...base,
+      variations: [{ id: "variation-1", name: "6-inch", openingQuantity: "0" }],
+    })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.variations[0].openingQuantity).toBe(0)
+  })
+  it("allows products to be created without any opening stock", () => {
+    const v = productSchema.parse({ ...base, variations: [{ name: "6-inch" }] })
+    expect(v.variations[0].openingQuantity).toBeUndefined()
+    expect(v.variations[0].openingUnitCost).toBeUndefined()
   })
   it("accepts uploaded product image paths and existing external URLs", () => {
     const uploadedPath = `/uploads/products/${"a".repeat(64)}/123e4567-e89b-12d3-a456-426614174000.webp`

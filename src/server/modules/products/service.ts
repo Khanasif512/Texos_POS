@@ -1,10 +1,13 @@
 import "server-only"
+import { randomUUID } from "node:crypto"
 import type { Prisma } from "@/generated/prisma/client"
 import { prisma, type TenantDb } from "@/server/db"
-import { AppError, businessRule, notFound } from "@/server/errors"
+import { AppError, businessRule, forbidden, notFound } from "@/server/errors"
 import { audit } from "@/server/audit"
-import { branchFilter, can, type TenantContext } from "@/server/auth/context"
-import { dec, num, round4 } from "@/server/decimal"
+import { assertBranch, branchFilter, can, type TenantContext } from "@/server/auth/context"
+import { dec, num, round2, round4 } from "@/server/decimal"
+import { issueStockFIFO, receiveStock } from "@/server/modules/inventory/stock"
+import { scopedBranch } from "@/server/modules/inventory-ops/shared"
 import {
   suggestSku,
   uniqueSku,
@@ -204,6 +207,134 @@ const variationData = (v: VariationOutput) => ({
   status: v.status,
 })
 
+type ProductOpeningLine = { variationId: string; sku: string; quantity: Prisma.Decimal; unitCost: Prisma.Decimal }
+type ProductStockTarget = { variationId: string; sku: string; quantity: Prisma.Decimal; unitCost?: Prisma.Decimal }
+
+async function postProductOpeningStock(
+  tx: Prisma.TransactionClient,
+  ctx: TenantContext,
+  branch: ReturnType<typeof scopedBranch>,
+  product: { id: string; name: string },
+  lines: ProductOpeningLine[],
+) {
+  const refId = randomUUID()
+  let totalValue = dec(0)
+  let totalUnits = dec(0)
+  for (const line of lines) {
+    await receiveStock(tx, {
+      companyId: ctx.companyId,
+      branchId: branch.id,
+      variationId: line.variationId,
+      quantity: line.quantity,
+      unitCost: line.unitCost,
+      source: "opening",
+      type: "opening",
+      batchNo: "OPENING",
+      refType: "opening",
+      refId,
+      userId: ctx.userId,
+      note: `Opening stock for ${product.name}`,
+    })
+    totalUnits = totalUnits.plus(line.quantity)
+    totalValue = totalValue.plus(line.quantity.times(line.unitCost))
+  }
+  await audit(
+    ctx,
+    {
+      action: "create",
+      entityType: "opening_stock",
+      entityId: refId,
+      summary: `Opening stock at ${branch.name}: ${lines.length} item(s), ${totalUnits.toString()} units, ৳${round2(totalValue).toFixed(2)}`,
+      after: {
+        branchId: branch.id,
+        productId: product.id,
+        lines: lines.map((line) => ({
+          variationId: line.variationId,
+          sku: line.sku,
+          quantity: line.quantity.toString(),
+          unitCost: line.unitCost.toString(),
+        })),
+      },
+    },
+    tx,
+  )
+  return { variations: lines.length, units: totalUnits.toString(), value: round2(totalValue).toString() }
+}
+
+async function setProductStock(
+  tx: Prisma.TransactionClient,
+  ctx: TenantContext,
+  branch: ReturnType<typeof scopedBranch>,
+  product: { id: string; name: string },
+  lines: ProductStockTarget[],
+) {
+  const refId = randomUUID()
+  const changes: { variationId: string; sku: string; previous: string; target: string; delta: string; unitCost: string | null }[] = []
+  for (const line of lines) {
+    const balance = await tx.stockBalance.findUnique({
+      where: { branchId_variationId: { branchId: branch.id, variationId: line.variationId } },
+      select: { quantity: true },
+    })
+    const previous = dec(balance?.quantity ?? 0)
+    const delta = line.quantity.minus(previous)
+    if (delta.isZero()) continue
+
+    if (delta.gt(0)) {
+      if (line.unitCost == null) throw new AppError("VALIDATION_ERROR", `Enter a unit cost to increase stock for ${line.sku}`)
+      await receiveStock(tx, {
+        companyId: ctx.companyId,
+        branchId: branch.id,
+        variationId: line.variationId,
+        quantity: delta,
+        unitCost: line.unitCost,
+        source: "adjustment",
+        type: "adjustment_in",
+        batchNo: "PRODUCT-EDIT",
+        refType: "product_stock_update",
+        refId,
+        userId: ctx.userId,
+        note: `Stock target update for ${product.name}`,
+      })
+    } else {
+      await issueStockFIFO(tx, {
+        companyId: ctx.companyId,
+        branchId: branch.id,
+        variationId: line.variationId,
+        quantity: delta.abs(),
+        type: "adjustment_out",
+        refType: "product_stock_update",
+        refId,
+        userId: ctx.userId,
+        note: `Stock target update for ${product.name}`,
+        label: `${product.name} — ${line.sku}`,
+      })
+    }
+
+    changes.push({
+      variationId: line.variationId,
+      sku: line.sku,
+      previous: previous.toString(),
+      target: line.quantity.toString(),
+      delta: delta.toString(),
+      unitCost: delta.gt(0) ? line.unitCost!.toString() : null,
+    })
+  }
+  if (!changes.length) return null
+
+  await audit(
+    ctx,
+    {
+      action: "update",
+      entityType: "product_stock",
+      entityId: refId,
+      summary: `Updated stock for ${product.name} at ${branch.name}: ${changes.length} variation(s)`,
+      after: { branchId: branch.id, productId: product.id, changes },
+    },
+    tx,
+  )
+  return { variations: changes.length, units: changes.reduce((total, change) => total.plus(dec(change.delta).abs()), dec(0)).toString() }
+}
+
 async function checkCategory(db: TenantDb, categoryId: string | null) {
   if (!categoryId) return
   const c = await db.category.findFirst({ where: { id: categoryId }, select: { id: true } })
@@ -257,6 +388,18 @@ export async function createProduct(ctx: TenantContext, db: TenantDb, input: Pro
   }
   await checkCategory(db, input.categoryId)
   const skus = await resolveSkus(ctx.companyId, input.name, input.variations, [])
+  const openingLines = input.variations.flatMap((variation, index) =>
+    variation.openingQuantity != null && variation.openingQuantity > 0
+      ? [{ index, quantity: dec(variation.openingQuantity), unitCost: round4(variation.openingUnitCost!) }]
+      : [],
+  )
+  let openingBranch: ReturnType<typeof scopedBranch> | null = null
+  if (openingLines.length) {
+    assertBranch(ctx, ctx.activeBranchId)
+    if (!can(ctx, "inventory.adjust")) throw forbidden("You are not allowed to post opening stock")
+    openingBranch = scopedBranch(ctx, ctx.activeBranchId)
+  }
+
   return prisma.$transaction(async (tx) => {
     const { categoryId, ...data } = productData(input)
     const p = await tx.product.create({
@@ -266,7 +409,21 @@ export async function createProduct(ctx: TenantContext, db: TenantDb, input: Pro
         ...(categoryId ? { category: { connect: { id: categoryId } } } : {}),
         variations: { create: input.variations.map((v, i) => ({ companyId: ctx.companyId, ...variationData(v), sku: skus[i] })) },
       },
+      include: { variations: { select: { id: true, sku: true } } },
     })
+    const openingStock = openingBranch
+      ? await postProductOpeningStock(
+        tx,
+        ctx,
+        openingBranch,
+        p,
+        openingLines.map((line) => {
+          const variation = p.variations.find((item) => item.sku === skus[line.index])
+          if (!variation) throw new Error("Created product variation could not be matched to its SKU")
+          return { ...line, variationId: variation.id, sku: skus[line.index] }
+        }),
+      )
+      : null
     await audit(
       ctx,
       {
@@ -274,12 +431,16 @@ export async function createProduct(ctx: TenantContext, db: TenantDb, input: Pro
         entityType: "product",
         entityId: p.id,
         summary: `Created product ${p.name} (${input.variations.length} variation${input.variations.length === 1 ? "" : "s"})`,
-        after: { ...productData(input), variations: input.variations.map((v, i) => ({ ...v, sku: skus[i] })) },
+        after: {
+          ...productData(input),
+          variations: input.variations.map((v, i) => ({ ...variationData(v), sku: skus[i] })),
+          openingStock: openingLines.length ? { branchId: openingBranch?.id, lines: openingLines.map((line) => ({ sku: skus[line.index], quantity: line.quantity.toString(), unitCost: line.unitCost.toString() })) } : undefined,
+        },
       },
       tx,
     )
-    return { id: p.id, skus }
-  })
+    return { id: p.id, skus, openingStock }
+  }, { timeout: 30_000, maxWait: 10_000 })
 }
 
 export async function updateProduct(ctx: TenantContext, db: TenantDb, id: string, input: ProductOutput) {
@@ -301,14 +462,49 @@ export async function updateProduct(ctx: TenantContext, db: TenantDb, id: string
     if (blocked) throw businessRule(`"${blocked.name}" ${locks.get(blocked.id)} and cannot be removed. Set it to inactive instead.`)
   }
   const skus = await resolveSkus(ctx.companyId, input.name, input.variations, [...existingIds])
+  const stockTargets = input.variations.flatMap((variation, index) =>
+    variation.openingQuantity != null
+      ? [{
+          index,
+          quantity: dec(variation.openingQuantity),
+          ...(variation.openingUnitCost != null ? { unitCost: round4(variation.openingUnitCost) } : {}),
+        }]
+      : [],
+  )
+  let openingBranch: ReturnType<typeof scopedBranch> | null = null
+  if (stockTargets.length) {
+    assertBranch(ctx, ctx.activeBranchId)
+    if (!can(ctx, "inventory.adjust")) throw forbidden("You are not allowed to post opening stock")
+    openingBranch = scopedBranch(ctx, ctx.activeBranchId)
+  }
 
-  await prisma.$transaction(async (tx) => {
+  const openingStock = await prisma.$transaction(async (tx) => {
     if (removed.length) await tx.productVariation.deleteMany({ where: { id: { in: removed.map((v) => v.id) }, companyId: ctx.companyId } })
     await tx.product.update({ where: { id }, data: productData(input) })
+    const variationIds: string[] = []
     for (const [i, v] of input.variations.entries()) {
-      if (v.id) await tx.productVariation.update({ where: { id: v.id }, data: { ...variationData(v), sku: skus[i] } })
-      else await tx.productVariation.create({ data: { companyId: ctx.companyId, productId: id, ...variationData(v), sku: skus[i] } })
+      if (v.id) {
+        await tx.productVariation.update({ where: { id: v.id }, data: { ...variationData(v), sku: skus[i] } })
+        variationIds[i] = v.id
+      } else {
+        const variation = await tx.productVariation.create({ data: { companyId: ctx.companyId, productId: id, ...variationData(v), sku: skus[i] } })
+        variationIds[i] = variation.id
+      }
     }
+    const openingStock = openingBranch
+      ? await setProductStock(
+        tx,
+        ctx,
+        openingBranch,
+        { id, name: input.name },
+        stockTargets.map((line) => ({
+          quantity: line.quantity,
+          ...(line.unitCost != null ? { unitCost: line.unitCost } : {}),
+          variationId: variationIds[line.index],
+          sku: skus[line.index],
+        })),
+      )
+      : null
     const priceChanges = input.variations
       .map((v) => {
         const old = v.id ? before.variations.find((b) => b.id === v.id) : undefined
@@ -330,12 +526,16 @@ export async function updateProduct(ctx: TenantContext, db: TenantDb, id: string
           status: before.status,
           variations: before.variations.map((v) => ({ id: v.id, name: v.name, sku: v.sku, salePrice: num(v.salePrice), wholesalePrice: v.wholesalePrice == null ? null : num(v.wholesalePrice), status: v.status })),
         },
-        after: { ...productData(input), variations: input.variations.map((v, i) => ({ ...v, sku: skus[i] })) },
+        after: {
+          ...productData(input),
+          variations: input.variations.map((v, i) => ({ ...variationData(v), sku: skus[i] })),
+        },
       },
       tx,
     )
-  })
-  return { id }
+    return openingStock
+  }, { timeout: 30_000, maxWait: 10_000 })
+  return { id, openingStock }
 }
 
 export async function deleteProduct(ctx: TenantContext, db: TenantDb, id: string) {
@@ -382,12 +582,22 @@ export async function deleteVariation(ctx: TenantContext, db: TenantDb, id: stri
 }
 
 /** Values for the edit form, plus which variations are locked by history. */
-export async function getProductForEdit(db: TenantDb, id: string) {
+export async function getProductForEdit(ctx: TenantContext, db: TenantDb, id: string) {
   const p = await db.product.findFirst({ where: { id }, include: { variations: { orderBy: { createdAt: "asc" } } } })
   if (!p) throw notFound("Product")
-  const locks = await variationLocks(p.variations.map((v) => v.id))
+  const [locks, balances] = await Promise.all([
+    variationLocks(p.variations.map((v) => v.id)),
+    p.variations.length
+      ? db.stockBalance.findMany({
+          where: { variationId: { in: p.variations.map((v) => v.id) }, branchId: ctx.activeBranchId },
+          select: { variationId: true, quantity: true },
+        })
+      : Promise.resolve([]),
+  ])
+  const currentStock = Object.fromEntries(balances.map((balance) => [balance.variationId, num(balance.quantity)]))
   return {
     id: p.id,
+    currentStock,
     values: {
       name: p.name,
       categoryId: p.categoryId ?? "none",
@@ -405,6 +615,8 @@ export async function getProductForEdit(db: TenantDb, id: string) {
         salePrice: num(v.salePrice),
         wholesalePrice: v.wholesalePrice == null ? "" : num(v.wholesalePrice),
         reorderLevel: num(v.reorderLevel),
+        openingQuantity: "",
+        openingUnitCost: "",
         status: v.status,
       })),
     },

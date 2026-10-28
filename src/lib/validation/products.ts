@@ -1,6 +1,6 @@
 import { z } from "zod"
 
-const optText = (max: number) => z.string().trim().max(max).optional().or(z.literal("")).transform((v) => v || null)
+const optText = (max: number) => z.string().trim().max(max).nullish().transform((v) => v || null)
 const optId = z
   .string()
   .optional()
@@ -9,6 +9,9 @@ const optId = z
 const amountField = (max = 1e10) => z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(max).default(0)
 /** blank → null, otherwise a non-negative number */
 const optAmount = z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(1e10).nullable())
+/** blank → undefined, otherwise a non-negative number */
+const optionalAmount = (max: number) =>
+  z.preprocess((v) => (v === "" || v == null ? undefined : v), z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(max).optional())
 const imageUrlField = z
   .string()
   .trim()
@@ -21,8 +24,7 @@ const imageUrlField = z
       return /^\/uploads\/products\/[a-f0-9]{64}\/[a-f0-9-]{36}\.(png|jpe?g|webp)$/.test(value)
     }
   }, "Enter a valid image URL")
-  .optional()
-  .or(z.literal(""))
+  .nullish()
   .transform((value) => value || null)
 
 export const PRODUCT_UNITS = ["pcs", "kg", "set", "sft", "rft", "box", "pair", "sheet", "roll", "meter", "ltr", "bag"] as const
@@ -59,14 +61,15 @@ export const variationSchema = z.object({
     .toUpperCase()
     .max(60, "Max 60 characters")
     .regex(/^[A-Z0-9][A-Z0-9._/-]*$/, "Letters, numbers and - . / _ only")
-    .optional()
-    .or(z.literal(""))
+    .nullish()
     .transform((v) => v || null),
   barcode: optText(80),
   unitWeight: z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(1e6).default(0),
   salePrice: amountField(),
   wholesalePrice: optAmount,
   reorderLevel: amountField(1e9),
+  openingQuantity: optionalAmount(1e9),
+  openingUnitCost: optionalAmount(1e11),
   status: z.enum(["active", "inactive"]).default("active"),
 })
 export type VariationInput = z.input<typeof variationSchema>
@@ -94,6 +97,14 @@ export const productSchema = z
       const n = row.name.toLowerCase()
       if (seenName.has(n)) ctx.addIssue({ code: "custom", path: ["variations", i, "name"], message: "Duplicate variation name" })
       else seenName.set(n, i)
+      const hasOpeningQuantity = row.openingQuantity != null
+      const hasPositiveOpeningQuantity = row.openingQuantity != null && row.openingQuantity > 0
+      if (hasPositiveOpeningQuantity && row.openingUnitCost == null)
+        ctx.addIssue({ code: "custom", path: ["variations", i, "openingUnitCost"], message: "Enter the unit cost for opening stock" })
+      if (row.openingUnitCost != null && !hasOpeningQuantity)
+        ctx.addIssue({ code: "custom", path: ["variations", i, "openingQuantity"], message: "Enter a quantity greater than 0" })
+      if (hasPositiveOpeningQuantity && row.status !== "active")
+        ctx.addIssue({ code: "custom", path: ["variations", i, "status"], message: "Opening stock requires an active variation" })
     })
   })
 export type ProductInput = z.input<typeof productSchema>

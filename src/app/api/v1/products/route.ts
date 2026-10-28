@@ -1,5 +1,6 @@
 import { listParams, ok, parseBody } from "@/server/api"
 import { tenantRoute } from "@/server/route"
+import { idempotent } from "@/server/idempotency"
 import { createProduct, listProducts, PRODUCT_SORTABLE } from "@/server/modules/products/service"
 import { productSchema } from "@/lib/validation/products"
 
@@ -20,6 +21,10 @@ export const GET = tenantRoute({ perm: "inventory.view" }, async ({ req, ctx, db
 
 /** Product with its variations in one request (INV-01). Blank SKUs are generated. */
 export const POST = tenantRoute({ perm: "inventory.create" }, async ({ req, ctx, db }) => {
-  const res = await createProduct(ctx, db, await parseBody(req, productSchema))
-  return ok(res, { status: 201, message: "Product created" })
+  const input = await parseBody(req, productSchema)
+  return idempotent(req, ctx.companyId, "products.create", async () => ({
+    data: await createProduct(ctx, db, input),
+    status: 201,
+    message: "Product created",
+  }))
 })

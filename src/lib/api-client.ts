@@ -48,7 +48,7 @@ async function request<T>(method: string, url: string, body?: unknown, opts: { i
 export const api = {
   get: <T>(url: string) => request<T>("GET", url),
   post: <T>(url: string, body?: unknown, opts?: { idempotencyKey?: string }) => request<T>("POST", url, body ?? {}, opts),
-  patch: <T>(url: string, body?: unknown) => request<T>("PATCH", url, body ?? {}),
+  patch: <T>(url: string, body?: unknown, opts?: { idempotencyKey?: string }) => request<T>("PATCH", url, body ?? {}, opts),
   put: <T>(url: string, body?: unknown) => request<T>("PUT", url, body ?? {}),
   delete: <T>(url: string) => request<T>("DELETE", url),
 }
