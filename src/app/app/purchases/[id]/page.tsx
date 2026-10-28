@@ -36,7 +36,9 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
     { label: "Order date", value: date(po.orderDate) },
     { label: "Expected delivery", value: po.expectedDate ? date(po.expectedDate) : "—" },
     { label: "Currency", value: foreign ? `${po.currency} @ ৳${po.exchangeRate}` : "BDT" },
-    { label: "LC reference", value: po.lc ? <Link href={`/app/lc/${po.lc.id}`} className="num hover:underline">{po.lc.lcNumber}</Link> : "—" },
+    { label: "Invoice reference", value: po.invoiceReference || "—" },
+    ...(po.bankDetails ? [{ label: "Bank details", value: <span className="whitespace-pre-line">{po.bankDetails}</span> }] : []),
+    ...(po.lc ? [{ label: "Linked LC", value: <Link href={`/app/lc/${po.lc.id}`} className="num hover:underline">{po.lc.lcNumber}</Link> }] : []),
   ]
 
   return (

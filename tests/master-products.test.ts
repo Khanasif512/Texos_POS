@@ -36,6 +36,13 @@ describe("product schema (INV-01)", () => {
     expect(v.categoryId).toBeNull()
     expect(v.variations[0]).toMatchObject({ sku: "ALU-6", salePrice: 450, wholesalePrice: null, unitWeight: 0.5, reorderLevel: 0, status: "active" })
   })
+  it("accepts uploaded product image paths and existing external URLs", () => {
+    const uploadedPath = `/uploads/products/${"a".repeat(64)}/123e4567-e89b-12d3-a456-426614174000.webp`
+    const parse = (imageUrl: string) => productSchema.parse({ ...base, imageUrl, variations: [{ name: "Standard" }] }).imageUrl
+    expect(parse(uploadedPath)).toBe(uploadedPath)
+    expect(parse("https://example.com/product.png")).toBe("https://example.com/product.png")
+    expect(productSchema.safeParse({ ...base, imageUrl: "/uploads/other/file.png", variations: [{ name: "Standard" }] }).success).toBe(false)
+  })
   it("rejects duplicate SKUs and variation names within a product", () => {
     const r = productSchema.safeParse({
       ...base,

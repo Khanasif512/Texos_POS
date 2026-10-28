@@ -26,9 +26,10 @@ async function refresh(kind: "user" | "admin") {
 
 async function request<T>(method: string, url: string, body?: unknown, opts: { idempotencyKey?: string } = {}, retry = true): Promise<T> {
   const headers: Record<string, string> = {}
-  if (body !== undefined) headers["Content-Type"] = "application/json"
+  const isFormData = body instanceof FormData
+  if (body !== undefined && !isFormData) headers["Content-Type"] = "application/json"
   if (opts.idempotencyKey) headers["Idempotency-Key"] = opts.idempotencyKey
-  const res = await fetch(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  const res = await fetch(url, { method, headers, body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body) })
   let json: Envelope<T>
   try {
     json = await res.json()

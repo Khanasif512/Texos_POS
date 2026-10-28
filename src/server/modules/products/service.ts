@@ -17,6 +17,16 @@ import type { z } from "zod"
 
 export const PRODUCT_SORTABLE = ["name", "createdAt", "updatedAt"]
 
+export async function listProductBrands(db: TenantDb) {
+  const rows = await db.product.findMany({
+    where: { brand: { not: null } },
+    select: { brand: true },
+    distinct: ["brand"],
+    orderBy: { brand: "asc" },
+  })
+  return rows.flatMap(({ brand }) => (brand ? [brand] : []))
+}
+
 // ───────── Categories ─────────
 
 export async function listCategories(db: TenantDb) {
@@ -248,10 +258,12 @@ export async function createProduct(ctx: TenantContext, db: TenantDb, input: Pro
   await checkCategory(db, input.categoryId)
   const skus = await resolveSkus(ctx.companyId, input.name, input.variations, [])
   return prisma.$transaction(async (tx) => {
+    const { categoryId, ...data } = productData(input)
     const p = await tx.product.create({
       data: {
         companyId: ctx.companyId,
-        ...productData(input),
+        ...data,
+        ...(categoryId ? { category: { connect: { id: categoryId } } } : {}),
         variations: { create: input.variations.map((v, i) => ({ companyId: ctx.companyId, ...variationData(v), sku: skus[i] })) },
       },
     })

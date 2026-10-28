@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { addDays, format } from "date-fns"
 import { Loader2, Plus, Save, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -33,20 +32,6 @@ export type OrderDraft = {
 
 const newLine = (): OrderLineDraft => ({ key: crypto.randomUUID(), variation: null, quantity: "1", unitPrice: "", discount: "" })
 const r2 = (n: number) => Math.round(n * 100) / 100
-
-export function emptyDraft(type: "quotation" | "order", branchId: string): OrderDraft {
-  const today = new Date()
-  return {
-    type,
-    branchId,
-    customer: null,
-    date: format(today, "yyyy-MM-dd"),
-    validUntil: type === "quotation" ? format(addDays(today, 15), "yyyy-MM-dd") : "",
-    discount: "",
-    note: "",
-    lines: [newLine()],
-  }
-}
 
 export function OrderForm({ initial }: { initial: OrderDraft }) {
   const app = useApp()

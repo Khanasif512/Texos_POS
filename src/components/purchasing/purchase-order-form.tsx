@@ -11,9 +11,9 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Field } from "@/components/shared/field"
-import { LcPicker, SupplierPicker, VariationPicker, type LcOption, type SupplierOption, type VariationOption } from "@/components/shared/pickers"
+import { SupplierPicker, VariationPicker, type SupplierOption, type VariationOption } from "@/components/shared/pickers"
 import { useApp } from "@/components/app/app-context"
-import { api, applyFieldErrors, errorMessage } from "@/lib/api-client"
+import { api, ApiError, applyFieldErrors, errorMessage } from "@/lib/api-client"
 import { amount, money, quantity } from "@/lib/format"
 import { CURRENCIES, purchaseOrderSchema, type PurchaseOrderInput, type PurchaseOrderOutput } from "@/lib/validation/purchasing"
 
@@ -21,7 +21,8 @@ export type PurchaseOrderFormInitial = {
   id: string
   number: string
   supplier: SupplierOption
-  lc: LcOption | null
+  invoiceReference: string | null
+  bankDetails: string | null
   branchId: string
   orderDate: string
   expectedDate: string | null
@@ -41,7 +42,6 @@ export function PurchaseOrderForm({ initial, today }: { initial?: PurchaseOrderF
   const app = useApp()
   const [idemKey] = useState(() => crypto.randomUUID())
   const [supplier, setSupplier] = useState<SupplierOption | null>(initial?.supplier ?? null)
-  const [lc, setLc] = useState<LcOption | null>(initial?.lc ?? null)
   const [picks, setPicks] = useState<Record<string, VariationOption>>(() =>
     Object.fromEntries((initial?.lines ?? []).map((l) => [l.variation.id, l.variation])),
   )
@@ -55,7 +55,8 @@ export function PurchaseOrderForm({ initial, today }: { initial?: PurchaseOrderF
       ? {
           supplierId: initial.supplier.id,
           branchId: initial.branchId,
-          lcId: initial.lc?.id ?? "",
+          invoiceReference: initial.invoiceReference ?? "",
+          bankDetails: initial.bankDetails ?? "",
           orderDate: initial.orderDate,
           expectedDate: initial.expectedDate ?? "",
           currency: initial.currency as "BDT",
@@ -66,7 +67,8 @@ export function PurchaseOrderForm({ initial, today }: { initial?: PurchaseOrderF
       : {
           supplierId: "",
           branchId: app.activeBranchId,
-          lcId: "",
+          invoiceReference: "",
+          bankDetails: "",
           orderDate: today,
           expectedDate: "",
           currency: "BDT",
@@ -89,22 +91,52 @@ export function PurchaseOrderForm({ initial, today }: { initial?: PurchaseOrderF
     append({ variationId: "", quantity: "", unitPrice: "" })
   }
 
-  const onSubmit = handleSubmit(async (v) => {
-    try {
-      if (initial) {
-        await api.patch(`/api/v1/purchase-orders/${initial.id}`, v)
-        toast.success(`${initial.number} updated`)
-        router.push(`/app/purchases/${initial.id}`)
-      } else {
-        const res = await api.post<{ id: string; number: string }>("/api/v1/purchase-orders", v, { idempotencyKey: idemKey })
-        toast.success(`Purchase order ${res.number} created`)
-        router.push(`/app/purchases/${res.id}`)
+  const onSubmit = handleSubmit(
+    async (v) => {
+      try {
+        if (initial) {
+          await api.patch(`/api/v1/purchase-orders/${initial.id}`, v)
+          toast.success(`${initial.number} updated`)
+          router.push(`/app/purchases/${initial.id}`)
+        } else {
+          const res = await api.post<{ id: string; number: string }>("/api/v1/purchase-orders", v, { idempotencyKey: idemKey })
+          toast.success(`Purchase order ${res.number} created`)
+          router.push(`/app/purchases/${res.id}`)
+        }
+        router.refresh()
+      } catch (err) {
+        const hasFieldErrors = applyFieldErrors(err, setError)
+        const details =
+          hasFieldErrors && err instanceof ApiError && err.details?.fields
+            ? Object.entries(err.details.fields)
+                .map(([field, message]) => `${field}: ${message}`)
+                .join(" · ")
+            : undefined
+        toast.error(errorMessage(err), details ? { description: details } : undefined)
       }
-      router.refresh()
-    } catch (err) {
-      if (!applyFieldErrors(err, setError)) toast.error(errorMessage(err))
-    }
-  })
+    },
+    (errors) => {
+      const lineMessages = (Array.isArray(errors.lines) ? errors.lines : []).map((line) =>
+        [line?.variationId?.message, line?.quantity?.message, line?.unitPrice?.message].filter((message): message is string => !!message),
+      )
+      const messages = [
+        errors.supplierId?.message,
+        errors.branchId?.message,
+        errors.invoiceReference?.message,
+        errors.bankDetails?.message,
+        errors.orderDate?.message,
+        errors.expectedDate?.message,
+        errors.currency?.message,
+        errors.exchangeRate?.message,
+        errors.notes?.message,
+        errors.lines?.root?.message ?? errors.lines?.message,
+        ...lineMessages.flatMap((line, index) => line.map((message) => `Item ${index + 1}: ${message}`)),
+      ].filter((message): message is string => !!message)
+      toast.error("Please check the purchase order fields", {
+        description: messages.join(" · ") || "Review the highlighted fields and try again.",
+      })
+    },
+  )
 
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-6">
@@ -140,18 +172,12 @@ export function PurchaseOrderForm({ initial, today }: { initial?: PurchaseOrderF
               )}
             />
           </Field>
-          {app.plan.features.lc && (
-            <Field label="LC reference" hint="Optional — for record only">
-              <LcPicker
-                value={lc}
-                onChange={(l) => {
-                  setLc(l)
-                  setValue("lcId", l?.id ?? "")
-                }}
-                placeholder="No LC"
-              />
-            </Field>
-          )}
+          <Field label="Invoice reference" htmlFor="invoiceReference" error={e.invoiceReference?.message} hint="Optional">
+            <Input id="invoiceReference" placeholder="Enter supplier invoice number" {...register("invoiceReference")} />
+          </Field>
+          <Field label="Bank details" htmlFor="bankDetails" error={e.bankDetails?.message} hint="Optional">
+            <Textarea id="bankDetails" rows={2} placeholder="Beneficiary, bank, account number…" {...register("bankDetails")} />
+          </Field>
           <Field label="Order date" htmlFor="orderDate" error={e.orderDate?.message} required>
             <Input id="orderDate" type="date" {...register("orderDate")} />
           </Field>

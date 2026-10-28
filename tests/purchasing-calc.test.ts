@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { purchaseOrderSchema } from "@/lib/validation/purchasing"
 import { canEditPo, cancelRemainder, extendedTotal, lineRemaining, poStatusFor, receiptQtyProblem, toBdt } from "@/server/modules/purchasing/calc"
 
 const line = (quantity: number, receivedQty = 0, cancelledQty = 0) => ({ quantity, receivedQty, cancelledQty })
@@ -41,6 +42,25 @@ describe("PO cancel (PO-03)", () => {
 })
 
 describe("PO editing and pricing", () => {
+  it("trims and accepts an optional supplier invoice reference", () => {
+    const result = purchaseOrderSchema.parse({
+      supplierId: "supplier-1",
+      branchId: "branch-1",
+      lcId: "legacy-lc-id",
+      invoiceReference: "  INV-2026-001  ",
+      bankDetails: "  Bank: Example Bank\nAccount: 12345  ",
+      orderDate: "2026-10-28",
+      expectedDate: "",
+      currency: "BDT",
+      exchangeRate: 1,
+      notes: "",
+      lines: [{ variationId: "variation-1", quantity: 1, unitPrice: 10 }],
+    })
+    expect(result.invoiceReference).toBe("INV-2026-001")
+    expect(result.bankDetails).toBe("Bank: Example Bank\nAccount: 12345")
+    expect(result).not.toHaveProperty("lcId")
+  })
+
   it("is editable only while pending with nothing received", () => {
     expect(canEditPo("pending", [line(5)])).toBe(true)
     expect(canEditPo("pending", [line(5, 1)])).toBe(false)

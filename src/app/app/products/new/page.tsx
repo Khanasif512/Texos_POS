@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/shared/empty-state"
 import { ProductForm } from "@/components/products/product-form"
 import { ensurePermission, requireTenant } from "@/server/auth/context"
 import { tenantDb } from "@/server/db"
+import { listProductBrands } from "@/server/modules/products/service"
 import { Gauge } from "lucide-react"
 
 export const metadata: Metadata = { title: "New product" }
@@ -14,8 +15,9 @@ export default async function NewProductPage() {
   const ctx = await requireTenant("/app/products/new")
   ensurePermission(ctx, "inventory.create")
   const db = tenantDb(ctx.companyId)
-  const [categories, count] = await Promise.all([
+  const [categories, brands, count] = await Promise.all([
     db.category.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true, parentId: true } }),
+    listProductBrands(db),
     db.product.count(),
   ])
   const atLimit = ctx.plan.maxProducts != null && count >= ctx.plan.maxProducts
@@ -34,7 +36,7 @@ export default async function NewProductPage() {
           }
         />
       ) : (
-        <ProductForm categories={categories} />
+        <ProductForm categories={categories} brands={brands} />
       )}
     </PageBody>
   )

@@ -139,6 +139,10 @@ SUPER_ADMIN_PASSWORD="<strong-password>"
 > ⚠️ `JWT_*` secret পরে বদলালে সব user logout হয়ে যাবে — একবার সেট করে রেখে দিন।
 > ⚠️ `.env` কখনো git এ commit করবেন না।
 
+### Product image uploads
+
+Product images are stored on the server in `public/uploads/products/` and served as static files. Keep this directory on persistent storage when deploying; do not remove it during releases. Include it in server/off-site file backups as well as the database. The upload directory is excluded from Git. For multiple app servers or ephemeral hosting, use shared/object storage instead of local disk.
+
 ---
 
 ## ৬. প্রথমবার Install, Migrate, Seed, Build
@@ -265,6 +269,9 @@ npx prisma migrate resolve --applied <migration_folder_name>
 | `*_init` | সব টেবিল (প্রথম সংস্করণ) |
 | `*_receipt_order_link_return_print_billing_plan` | `money_receipts.salesOrderId`, `billing_invoices.kind/planId/billingCycle`, `sales_returns.printCount/lastPrintedAt` |
 | `*_backfill_receipt_order_and_billing_meta` | পুরনো রেকর্ডে উপরের নতুন column গুলো পূরণ (বারবার চালালেও নিরাপদ) |
+| `*_add_product_note` | `products.note` ঐচ্ছিক note field যোগ করে |
+| `*_add_purchase_order_invoice_reference` | `purchase_orders.invoiceReference` ঐচ্ছিক supplier invoice reference যোগ করে |
+| `*_add_purchase_order_bank_details` | `purchase_orders.bankDetails` ঐচ্ছিক bank details যোগ করে |
 
 ---
 
@@ -278,6 +285,7 @@ npx prisma migrate resolve --applied <migration_folder_name>
     cd /home/texon/htdocs/app.example.com && set -a && . ./.env && set +a && MYSQL_PWD=$(node -e 'console.log(decodeURIComponent(new URL(process.env.DATABASE_URL).password))') mysqldump -u texonpos --single-transaction --no-tablespaces texonpos | gzip > /home/texon/backups/daily-$(date +\%F).sql.gz && find /home/texon/backups -name 'daily-*.sql.gz' -mtime +14 -delete
     ```
 - CloudPanel এর **Admin Area → Backups / Remote Backup** দিয়ে S3/Wasabi/Backblaze এ off-site কপি রাখুন (NFR-SEC-06)। মাসে একবার restore টেস্ট করুন।
+- `public/uploads/` এর product image-ও আলাদাভাবে off-site backup-এ রাখুন।
 
 ---
 

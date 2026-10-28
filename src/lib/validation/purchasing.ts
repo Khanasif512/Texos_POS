@@ -3,7 +3,6 @@ import { z } from "zod"
 const optText = (max: number) => z.string().trim().max(max).optional().or(z.literal("")).transform((v) => v || null)
 const dateStr = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date")
 const optDate = dateStr.optional().or(z.literal("")).transform((v) => v || null)
-const optId = z.string().trim().optional().or(z.literal("")).transform((v) => v || null)
 
 export const CURRENCIES = ["BDT", "USD", "RMB"] as const
 
@@ -25,7 +24,8 @@ export const purchaseOrderSchema = z
   .object({
     supplierId: z.string().min(1, "Choose a supplier"),
     branchId: z.string().min(1, "Choose a branch"),
-    lcId: optId,
+    invoiceReference: optText(191),
+    bankDetails: optText(2000),
     orderDate: dateStr,
     expectedDate: optDate,
     currency: z.enum(CURRENCIES).default("BDT"),

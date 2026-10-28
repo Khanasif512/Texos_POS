@@ -9,6 +9,21 @@ const optId = z
 const amountField = (max = 1e10) => z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(max).default(0)
 /** blank → null, otherwise a non-negative number */
 const optAmount = z.preprocess((v) => (v === "" || v == null ? null : v), z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(1e10).nullable())
+const imageUrlField = z
+  .string()
+  .trim()
+  .max(500)
+  .refine((value) => {
+    if (!value) return true
+    try {
+      return ["http:", "https:"].includes(new URL(value).protocol)
+    } catch {
+      return /^\/uploads\/products\/[a-f0-9]{64}\/[a-f0-9-]{36}\.(png|jpe?g|webp)$/.test(value)
+    }
+  }, "Enter a valid image URL")
+  .optional()
+  .or(z.literal(""))
+  .transform((value) => value || null)
 
 export const PRODUCT_UNITS = ["pcs", "kg", "set", "sft", "rft", "box", "pair", "sheet", "roll", "meter", "ltr", "bag"] as const
 export const UNIT_LABELS: Record<(typeof PRODUCT_UNITS)[number], string> = {
@@ -64,7 +79,7 @@ export const productSchema = z
     brand: optText(120),
     unit: z.enum(PRODUCT_UNITS).default("pcs"),
     description: optText(5000),
-    imageUrl: z.string().trim().url("Enter a valid URL (https://…)").max(500).optional().or(z.literal("")).transform((v) => v || null),
+    imageUrl: imageUrlField,
     status: z.enum(["active", "inactive"]).default("active"),
     variations: z.array(variationSchema).min(1, "Add at least one variation").max(100, "Max 100 variations per product"),
   })

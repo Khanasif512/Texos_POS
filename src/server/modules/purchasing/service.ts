@@ -20,10 +20,6 @@ const TX_OPTS = { timeout: 30_000 }
 async function validatePoRefs(ctx: TenantContext, input: PurchaseOrderOutput) {
   const supplier = await prisma.supplier.findFirst({ where: { id: input.supplierId, companyId: ctx.companyId }, select: { id: true, name: true } })
   if (!supplier) throw notFound("Supplier")
-  if (input.lcId) {
-    const lc = await prisma.lc.findFirst({ where: { id: input.lcId, companyId: ctx.companyId }, select: { id: true } })
-    if (!lc) throw notFound("LC")
-  }
   await assertVariations(prisma, ctx.companyId, input.lines.map((l) => l.variationId))
   return supplier
 }
@@ -53,7 +49,8 @@ export async function createPurchaseOrder(ctx: TenantContext, input: PurchaseOrd
         companyId: ctx.companyId,
         branchId: branch.id,
         supplierId: supplier.id,
-        lcId: input.lcId,
+        invoiceReference: input.invoiceReference,
+        bankDetails: input.bankDetails,
         number,
         orderDate: toDateOnly(input.orderDate),
         expectedDate: input.expectedDate ? toDateOnly(input.expectedDate) : null,
@@ -100,7 +97,8 @@ export async function updatePurchaseOrder(ctx: TenantContext, id: string, input:
       where: { id: po.id },
       data: {
         supplierId: input.supplierId,
-        lcId: input.lcId,
+        invoiceReference: input.invoiceReference,
+        bankDetails: input.bankDetails,
         orderDate: toDateOnly(input.orderDate),
         expectedDate: input.expectedDate ? toDateOnly(input.expectedDate) : null,
         currency: input.currency,
@@ -177,6 +175,8 @@ export async function getPurchaseOrder(ctx: TenantContext, id: string) {
     branchName: branches.get(po.branchId)?.name ?? "—",
     supplier: po.supplier,
     lc,
+    invoiceReference: po.invoiceReference,
+    bankDetails: po.bankDetails,
     orderDate: isoDate(po.orderDate)!,
     expectedDate: isoDate(po.expectedDate),
     currency: po.currency,

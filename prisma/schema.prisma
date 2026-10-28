@@ -670,6 +670,7 @@ model Product {
   categoryId  String?
   name        String       @db.VarChar(191)
   brand       String?      @db.VarChar(120)
+  note        String?      @db.VarChar(500)
   description String?      @db.Text
   unit        String       @default("pcs") @db.VarChar(20)
   imageUrl    String?      @db.VarChar(500)
@@ -884,6 +885,8 @@ model PurchaseOrder {
   branchId     String
   supplierId   String
   lcId         String?
+  invoiceReference String?          @db.VarChar(191)
+  bankDetails  String?             @db.Text
   number       String              @db.VarChar(40)
   orderDate    DateTime            @db.Date
   expectedDate DateTime?           @db.Date
