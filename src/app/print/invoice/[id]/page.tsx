@@ -43,6 +43,8 @@ export default async function InvoicePrintPage({
 
           <Letterhead
             company={company}
+            appLogo
+            variant="invoice"
             title={inv.type === "cash" ? "CASH INVOICE" : "CREDIT INVOICE"}
             meta={[
               ["Invoice no.", inv.number],

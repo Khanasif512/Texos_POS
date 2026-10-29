@@ -161,7 +161,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
         </div>
       </section>
 
-      {(p.description || p.imageUrl) && (
+      {(p.description || p.note || p.imageUrl) && (
         <section className="flex flex-col gap-5 rounded-xl border bg-card p-5 sm:flex-row">
           {p.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -173,7 +173,8 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
           )}
           <div>
             <h2 className="font-semibold">About this product</h2>
-            <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{p.description ?? "No description."}</p>
+            {(p.description || p.imageUrl) && <p className="mt-1 text-sm whitespace-pre-line text-muted-foreground">{p.description ?? "No description."}</p>}
+            {p.note && <p className="mt-3 text-sm whitespace-pre-line"><span className="font-medium">Note:</span> {p.note}</p>}
           </div>
         </section>
       )}

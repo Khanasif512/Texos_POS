@@ -9,7 +9,12 @@ import { publicContext, requireTenant } from "@/server/auth/context"
 import { I18nProvider } from "@/components/i18n/i18n-provider"
 import { LANG_COOKIE, normalizeLang } from "@/lib/i18n"
 
-export const metadata: Metadata = { title: { default: "Dashboard", template: "%s · TexonPOS" } }
+export async function generateMetadata(): Promise<Metadata> {
+  const ctx = await requireTenant("/app")
+  return {
+    title: { default: `${ctx.company.name} Dashboard`, template: `%s · ${ctx.company.name}` },
+  }
+}
 
 export default async function TenantAppLayout({ children }: { children: React.ReactNode }) {
   const ctx = await requireTenant("/app")

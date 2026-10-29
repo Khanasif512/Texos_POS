@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import { LogoMark } from "@/components/brand/logo"
 
 type Company = {
   name: string
@@ -11,30 +12,62 @@ type Company = {
 }
 
 /** Company header for printed sales documents. */
-export function Letterhead({ company, title, meta }: { company: Company; title: string; meta: [string, React.ReactNode][] }) {
+export function Letterhead({
+  company,
+  title,
+  meta,
+  appLogo = false,
+  variant = "default",
+}: {
+  company: Company
+  title: string
+  meta: [string, React.ReactNode][]
+  appLogo?: boolean
+  variant?: "default" | "invoice"
+}) {
   return (
-    <header className="flex items-start justify-between gap-6 border-b-2 border-neutral-800 pb-3">
+    <header
+      className={
+        variant === "invoice"
+          ? "grid grid-cols-[minmax(0,1fr)_minmax(240px,0.8fr)] items-stretch gap-6 border-b-2 border-indigo-700 pb-4"
+          : "flex items-start justify-between gap-6 border-b-2 border-neutral-800 pb-3"
+      }
+    >
       <div className="flex min-w-0 items-start gap-3">
-        {company.logoUrl && <img src={company.logoUrl} alt="" className="size-14 shrink-0 object-contain" />}
+        {company.logoUrl && (
+          <img
+            src={company.logoUrl}
+            alt=""
+            className={variant === "invoice" ? "size-16 shrink-0 rounded-lg border border-slate-200 bg-white p-1.5 object-contain" : "size-14 shrink-0 object-contain"}
+          />
+        )}
         <div className="min-w-0">
-          <h1 className="text-xl leading-tight font-bold">{company.name}</h1>
-          {company.address && <p className="text-xs text-neutral-600">{company.address}</p>}
-          <p className="text-xs text-neutral-600">{[company.phone, company.email].filter(Boolean).join(" · ")}</p>
+          {variant === "invoice" && <p className="mb-1 text-[9px] font-semibold tracking-[0.18em] text-indigo-700 uppercase">Invoice from</p>}
+          <h1 className={variant === "invoice" ? "text-2xl leading-tight font-bold tracking-tight text-slate-900" : "text-xl leading-tight font-bold"}>{company.name}</h1>
+          {company.address && <p className={variant === "invoice" ? "mt-1 text-[11px] leading-relaxed text-slate-600" : "text-xs text-neutral-600"}>{company.address}</p>}
+          <p className={variant === "invoice" ? "mt-1 text-[11px] text-slate-600" : "text-xs text-neutral-600"}>{[company.phone, company.email].filter(Boolean).join(" · ")}</p>
           {(company.binNumber || company.tradeLicense) && (
-            <p className="text-xs text-neutral-600">
+            <p className={variant === "invoice" ? "mt-1 text-[10px] text-slate-500" : "text-xs text-neutral-600"}>
               {[company.binNumber && `BIN: ${company.binNumber}`, company.tradeLicense && `Trade licence: ${company.tradeLicense}`].filter(Boolean).join(" · ")}
             </p>
           )}
         </div>
       </div>
-      <div className="shrink-0 text-right">
-        <p className="text-lg font-bold tracking-wide">{title}</p>
-        <table className="mt-1 ml-auto text-xs">
+      <div className={variant === "invoice" ? "rounded-xl border border-slate-200 border-t-2 border-t-indigo-700 bg-slate-50 px-4 py-3 text-right" : "shrink-0 text-right"}>
+        {appLogo && (
+          <div className="mb-1 flex items-center justify-end gap-1.5">
+            <LogoMark className="size-5" />
+            <span className={variant === "invoice" ? "text-[9px] font-semibold tracking-wide text-slate-500 uppercase" : "text-[10px] font-semibold tracking-tight"}>TexonPOS</span>
+          </div>
+        )}
+        {variant === "invoice" && <p className="text-[9px] font-semibold tracking-[0.16em] text-indigo-700 uppercase">Sales document</p>}
+        <p className={variant === "invoice" ? "mt-0.5 text-xl font-bold tracking-wide text-slate-900" : "text-lg font-bold tracking-wide"}>{title}</p>
+        <table className={variant === "invoice" ? "mt-2 ml-auto text-[10px]" : "mt-1 ml-auto text-xs"}>
           <tbody>
             {meta.map(([k, v]) => (
-              <tr key={k}>
-                <td className="pr-2 text-neutral-500">{k}</td>
-                <td className="num text-right font-medium">{v}</td>
+              <tr key={k} className={variant === "invoice" ? "border-t border-slate-200" : undefined}>
+                <td className={variant === "invoice" ? "py-1 pr-3 text-left text-slate-500" : "pr-2 text-neutral-500"}>{k}</td>
+                <td className={variant === "invoice" ? "num py-1 text-right font-semibold text-slate-800" : "num text-right font-medium"}>{v}</td>
               </tr>
             ))}
           </tbody>

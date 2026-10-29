@@ -3,8 +3,9 @@ import { PageBody, PageHeader } from "@/components/app/page-header"
 import type { Prisma } from "@/generated/prisma/client"
 import { ensurePermission, requireTenant } from "@/server/auth/context"
 import { prisma } from "@/server/db"
-import { dateRange, readListParams, type ListSearchParams } from "@/server/list"
-import { AuditTable, type AuditRow } from "./audit-table"
+import { auditLogWhere } from "@/server/modules/org/audit"
+import { readListParams, type ListSearchParams } from "@/server/list"
+import { AuditPrintButton, AuditTable, type AuditRow } from "./audit-table"
 
 export const metadata: Metadata = { title: "Audit log" }
 
@@ -12,19 +13,15 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
   const ctx = await requireTenant("/app/org/audit")
   ensurePermission(ctx, "org.audit")
   const p = readListParams(await searchParams, { sortable: ["createdAt", "entityType", "action", "actorName"], defaultSort: "createdAt:desc", pageSize: 25 })
-  const entity = p.get("entity")
-  const action = p.get("action")
-  const actor = p.get("actor")
-
   const base: Prisma.AuditLogWhereInput = { companyId: ctx.companyId }
-  const where: Prisma.AuditLogWhereInput = {
-    ...base,
-    ...(entity ? { entityType: entity } : {}),
-    ...(action ? { action } : {}),
-    ...(actor ? (actor === "platform" ? { actorType: "admin" } : { actorId: actor }) : {}),
-    ...(p.from || p.to ? { createdAt: dateRange(p.from, p.to) } : {}),
-    ...(p.q ? { OR: [{ summary: { contains: p.q } }, { entityId: p.q }, { actorName: { contains: p.q } }] } : {}),
-  }
+  const where = auditLogWhere(ctx.companyId, {
+    entity: p.get("entity"),
+    action: p.get("action"),
+    actor: p.get("actor"),
+    from: p.from,
+    to: p.to,
+    q: p.q,
+  })
 
   const [rows, total, entities, actions, actors] = await Promise.all([
     prisma.auditLog.findMany({ where, orderBy: [p.orderBy, { id: "desc" }], skip: p.skip, take: p.take }),
@@ -50,7 +47,11 @@ export default async function AuditPage({ searchParams }: { searchParams: Promis
 
   return (
     <PageBody>
-      <PageHeader title="Audit log" description="Every change to financial and access-control records — who, what, before and after (AUD-01)." />
+      <PageHeader
+        title="Audit log"
+        description="Every change to financial and access-control records — who, what, before and after (AUD-01)."
+        actions={<AuditPrintButton />}
+      />
       <AuditTable
         rows={data}
         total={total}

@@ -80,6 +80,7 @@ export const productSchema = z
     name: z.string().trim().min(2, "Enter a product name").max(191),
     categoryId: optId,
     brand: optText(120),
+    note: optText(500),
     unit: z.enum(PRODUCT_UNITS).default("pcs"),
     description: optText(5000),
     imageUrl: imageUrlField,

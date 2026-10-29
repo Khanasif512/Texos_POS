@@ -51,6 +51,7 @@ export const companySchema = z.object({
   email: z.string().trim().toLowerCase().email().max(191),
   phone: optText(40),
   address: optText(1000),
+  logoUrl: optText(500),
   tradeLicense: optText(80),
   binNumber: optText(80),
   invoiceFooter: optText(1000),

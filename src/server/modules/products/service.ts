@@ -191,6 +191,7 @@ const productData = (input: ProductOutput) => ({
   name: input.name,
   categoryId: input.categoryId,
   brand: input.brand,
+  note: input.note,
   unit: input.unit,
   description: input.description,
   imageUrl: input.imageUrl,
@@ -396,7 +397,6 @@ export async function createProduct(ctx: TenantContext, db: TenantDb, input: Pro
   let openingBranch: ReturnType<typeof scopedBranch> | null = null
   if (openingLines.length) {
     assertBranch(ctx, ctx.activeBranchId)
-    if (!can(ctx, "inventory.adjust")) throw forbidden("You are not allowed to post opening stock")
     openingBranch = scopedBranch(ctx, ctx.activeBranchId)
   }
 
@@ -602,6 +602,7 @@ export async function getProductForEdit(ctx: TenantContext, db: TenantDb, id: st
       name: p.name,
       categoryId: p.categoryId ?? "none",
       brand: p.brand ?? "",
+      note: p.note ?? "",
       unit: p.unit as ProductOutput["unit"],
       description: p.description ?? "",
       imageUrl: p.imageUrl ?? "",
@@ -681,6 +682,7 @@ export async function getProductDetail(ctx: TenantContext, db: TenantDb, id: str
       id: p.id,
       name: p.name,
       brand: p.brand,
+      note: p.note,
       unit: p.unit,
       description: p.description,
       imageUrl: p.imageUrl,

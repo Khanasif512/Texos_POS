@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
+import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
 import { ChevronRight, Lock } from "lucide-react"
 import { toast } from "sonner"
@@ -70,7 +71,11 @@ export function AppSidebar() {
     <Sidebar collapsible="icon" variant="sidebar">
       <SidebarHeader className="border-b border-sidebar-border">
         <Link href="/app" onClick={closeMobile} className="flex items-center gap-2.5 rounded-md px-1.5 py-1.5">
-          <LogoMark className="size-7 shrink-0" />
+          {ctx.company.logoUrl ? (
+            <Image src={ctx.company.logoUrl} alt="" width={28} height={28} className="size-7 shrink-0 object-contain" />
+          ) : (
+            <LogoMark className="size-7 shrink-0" />
+          )}
           <div className="min-w-0 group-data-[collapsible=icon]:hidden">
             <p className="truncate text-sm font-semibold leading-tight">{ctx.company.name}</p>
             <p className="truncate text-[11px] text-muted-foreground">{t("sidebar.plan", { plan: ctx.plan.name })}</p>

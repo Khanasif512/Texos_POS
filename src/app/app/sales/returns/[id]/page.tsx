@@ -53,7 +53,7 @@ export default async function ReturnDetailPage({ params }: { params: Promise<{ i
               <>
                 <ReasonDialogButton
                   label="Reject"
-                  icon={XCircle}
+                  icon="x-circle"
                   title={`Reject return ${r.number}?`}
                   description="Nothing moves — no stock, no refund. The requester sees your note."
                   endpoint={`/api/v1/returns/${r.id}/reject`}

@@ -31,11 +31,17 @@ describe("product schema (INV-01)", () => {
     const v = productSchema.parse({
       ...base,
       categoryId: "none",
+      note: " Handle with care ",
       variations: [{ name: "6-inch", sku: " alu-6 ", salePrice: "450", wholesalePrice: "", unitWeight: "0.5" }],
     })
+    expect(v.note).toBe("Handle with care")
     expect(v.categoryId).toBeNull()
     expect(v.variations[0]).toMatchObject({ sku: "ALU-6", barcode: null, salePrice: 450, wholesalePrice: null, unitWeight: 0.5, reorderLevel: 0, status: "active" })
     expect(productSchema.parse({ ...v, variations: [{ ...v.variations[0], barcode: null }] }).variations[0].barcode).toBeNull()
+  })
+  it("allows an empty product note and rejects notes over 500 characters", () => {
+    expect(productSchema.parse({ ...base, note: "", variations: [{ name: "Standard" }] }).note).toBeNull()
+    expect(productSchema.safeParse({ ...base, note: "x".repeat(501), variations: [{ name: "Standard" }] }).success).toBe(false)
   })
   it("accepts opening stock per variation when branch, quantity, and cost are provided", () => {
     const v = productSchema.parse({

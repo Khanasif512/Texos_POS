@@ -37,9 +37,11 @@ export function PrintToolbar({ title, onPrinted, auto }: { title: string; onPrin
 }
 
 /** A4 sheet wrapper. */
-export function PrintSheet({ children }: { children: React.ReactNode }) {
+export function PrintSheet({ children, landscape = false }: { children: React.ReactNode; landscape?: boolean }) {
   return (
-    <div className="mx-auto my-6 w-full max-w-[210mm] bg-white p-[12mm] text-[13px] text-neutral-900 shadow-sm print:my-0 print:max-w-none print:p-0 print:shadow-none">
+    <div
+      className={`mx-auto my-6 w-full ${landscape ? "max-w-[297mm]" : "max-w-[210mm]"} bg-white p-[12mm] text-[13px] text-neutral-900 shadow-sm print:my-0 print:max-w-none print:p-0 print:shadow-none`}
+    >
       {children}
     </div>
   )

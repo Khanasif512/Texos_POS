@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Eye, History } from "lucide-react"
+import { useSearchParams } from "next/navigation"
+import { Eye, History, Printer } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Switch } from "@/components/ui/switch"
@@ -35,6 +36,23 @@ const actionTone = (a: string): Tone =>
       : /update|edit|change|override/.test(a)
         ? "info"
         : "neutral"
+
+export function AuditPrintButton() {
+  const searchParams = useSearchParams()
+
+  return (
+    <Button
+      variant="outline"
+      onClick={() => {
+        const query = searchParams.toString()
+        window.open(`/print/audit${query ? `?${query}` : ""}`, "_blank", "noopener,noreferrer")
+      }}
+    >
+      <Printer />
+      Print audit log
+    </Button>
+  )
+}
 
 export function AuditTable({
   rows,

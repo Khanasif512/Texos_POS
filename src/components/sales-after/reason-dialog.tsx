@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Ban, Loader2 } from "lucide-react"
+import { Ban, Loader2, XCircle } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -22,7 +22,7 @@ export function ReasonDialogButton({
   field = "reason",
   confirmLabel,
   placeholder,
-  icon: Icon = Ban,
+  icon = "ban",
   variant = "destructive",
   successMessage,
 }: {
@@ -33,11 +33,12 @@ export function ReasonDialogButton({
   field?: "reason" | "note"
   confirmLabel: string
   placeholder?: string
-  icon?: typeof Ban
+  icon?: "ban" | "x-circle"
   variant?: "destructive" | "outline"
   successMessage: string | ((data: Record<string, unknown>) => string)
 }) {
   const router = useRouter()
+  const Icon = icon === "x-circle" ? XCircle : Ban
   const [open, setOpen] = useState(false)
   const [reason, setReason] = useState("")
   const [error, setError] = useState<string | null>(null)

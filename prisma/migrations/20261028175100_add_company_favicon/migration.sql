@@ -1,0 +1,1 @@
+ALTER TABLE `companies` ADD COLUMN `faviconUrl` VARCHAR(500) NULL;

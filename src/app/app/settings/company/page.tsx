@@ -20,6 +20,7 @@ export default async function CompanySettingsPage() {
           email: c.email,
           phone: c.phone ?? "",
           address: c.address ?? "",
+          logoUrl: c.logoUrl ?? "",
           tradeLicense: c.tradeLicense ?? "",
           binNumber: c.binNumber ?? "",
           invoiceFooter: c.invoiceFooter ?? "",

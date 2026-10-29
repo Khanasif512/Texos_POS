@@ -62,7 +62,7 @@ export function ProductForm({
   brands: string[]
 }) {
   const router = useRouter()
-  const canPostOpeningStock = useCan("inventory.adjust")
+  const canAdjustStock = useCan("inventory.adjust")
   const [idempotencyKey] = useState(() => crypto.randomUUID())
   const [categories, setCategories] = useState(initialCategories)
   const [newCategory, setNewCategory] = useState(false)
@@ -246,7 +246,10 @@ export function ProductForm({
               Choose a PNG, JPEG, or WebP image up to 5 MB.
             </p>
           </Field>
-          {canPostOpeningStock && (
+          <Field label="Note" htmlFor="p-note" error={e.note?.message}>
+            <Textarea id="p-note" rows={2} maxLength={500} placeholder="Optional internal note about this product" {...register("note")} />
+          </Field>
+          {(!productId || canAdjustStock) && (
             <section className="space-y-4 rounded-lg border p-4 sm:col-span-2 lg:col-span-3">
               <div>
                 <h3 className="text-sm font-semibold">Opening stocks</h3>
