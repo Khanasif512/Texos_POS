@@ -86,12 +86,14 @@ export default async function ReceiptPrintPage({
 
           <div className="mt-5 flex items-start justify-between gap-6">
             {r.allocations.length > 0 ? (
-              <table className="w-full max-w-md text-xs">
+              <table className="w-full text-xs">
                 <thead>
                   <tr className="border-y border-neutral-800 text-left">
                     <th className="py-1.5 pr-2 font-semibold">Invoice</th>
                     <th className="py-1.5 pr-2 font-semibold">Date</th>
-                    <th className="py-1.5 text-right font-semibold">Amount (৳)</th>
+                    <th className="py-1.5 pr-2 text-right font-semibold">Invoice total (৳)</th>
+                    <th className="py-1.5 pr-2 text-right font-semibold">Due now (৳)</th>
+                    <th className="py-1.5 text-right font-semibold">Received (৳)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -99,12 +101,14 @@ export default async function ReceiptPrintPage({
                     <tr key={a.id} className="border-b border-neutral-200">
                       <td className="num py-1.5 pr-2">{a.number}</td>
                       <td className="py-1.5 pr-2">{date(a.invoiceDate)}</td>
+                      <td className="num py-1.5 pr-2 text-right">{amount(a.invoiceTotal)}</td>
+                      <td className="num py-1.5 pr-2 text-right font-medium">{amount(a.dueNow)}</td>
                       <td className="num py-1.5 text-right">{amount(a.amount)}</td>
                     </tr>
                   ))}
                   {r.unallocated > 0 && (
                     <tr className="border-b border-neutral-200">
-                      <td className="py-1.5 pr-2" colSpan={2}>
+                      <td className="py-1.5 pr-2" colSpan={4}>
                         Advance (on account)
                       </td>
                       <td className="num py-1.5 text-right">{amount(r.unallocated)}</td>

@@ -106,6 +106,11 @@ export function ReceiptForm({ initialCustomer, invoiceId }: { initialCustomer: C
   const effective = useMemo(() => (manual ? alloc : autoAllocate(amountP, invoices)), [manual, alloc, amountP, invoices])
 
   const allocatedP = invoices.reduce((a, i) => a + paisa(effective[i.id] ?? 0), 0)
+  const invoiceTotalP = invoices.reduce((a, i) => a + paisa(i.total), 0)
+  const invoicePaidP = invoices.reduce((a, i) => a + paisa(i.paidAmount), 0)
+  const invoiceDueP = invoices.reduce((a, i) => a + paisa(i.dueAmount), 0)
+  const invoiceAdjustmentP = invoices.reduce((a, i) => a + paisa(i.total) - paisa(i.paidAmount) - paisa(i.dueAmount), 0)
+  const dueAfterReceiptP = invoices.reduce((sum, i) => sum + Math.max(0, paisa(i.dueAmount) - paisa(effective[i.id] ?? 0)), 0)
   const advanceP = amountP - allocatedP
   const over = invoices.filter((i) => paisa(effective[i.id] ?? 0) > paisa(i.dueAmount))
 
@@ -255,6 +260,8 @@ export function ReceiptForm({ initialCustomer, invoiceId }: { initialCustomer: C
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
                     <TableHead className="text-xs">Invoice</TableHead>
                     <TableHead className="text-right text-xs">Total</TableHead>
+                    <TableHead className="text-right text-xs">Paid</TableHead>
+                    <TableHead className="text-right text-xs">Credits / returns</TableHead>
                     <TableHead className="text-right text-xs">Due</TableHead>
                     <TableHead className="w-[150px] text-right text-xs">Allocate</TableHead>
                   </TableRow>
@@ -262,6 +269,7 @@ export function ReceiptForm({ initialCustomer, invoiceId }: { initialCustomer: C
                 <TableBody>
                   {invoices.map((i) => {
                     const bad = paisa(effective[i.id] ?? 0) > paisa(i.dueAmount)
+                    const adjustmentP = paisa(i.total) - paisa(i.paidAmount) - paisa(i.dueAmount)
                     return (
                       <TableRow key={i.id}>
                         <TableCell className="py-2.5">
@@ -271,6 +279,10 @@ export function ReceiptForm({ initialCustomer, invoiceId }: { initialCustomer: C
                           </p>
                         </TableCell>
                         <TableCell className="num text-right text-muted-foreground">{money(i.total)}</TableCell>
+                        <TableCell className="num text-right">{money(i.paidAmount)}</TableCell>
+                        <TableCell className={`num text-right ${adjustmentP < 0 ? "font-medium text-destructive" : "text-muted-foreground"}`}>
+                          {money(taka(adjustmentP))}
+                        </TableCell>
                         <TableCell className="num text-right">{money(i.dueAmount)}</TableCell>
                         <TableCell className="text-right">
                           <Input
@@ -306,7 +318,11 @@ export function ReceiptForm({ initialCustomer, invoiceId }: { initialCustomer: C
           {summary && (
             <dl className="mt-3 grid gap-1.5 border-b pb-3 text-sm">
               <Row label="Customer balance" value={money(summary.customer.balance)} tone={summary.customer.balance > 0 ? "danger" : "success"} />
-              <Row label="Open invoices due" value={money(summary.totalDue)} />
+              <Row label="Open invoice total" value={money(taka(invoiceTotalP))} />
+              <Row label="Paid to date" value={money(taka(invoicePaidP))} />
+              <Row label="Credits / returns" value={money(taka(invoiceAdjustmentP))} tone={invoiceAdjustmentP < 0 ? "danger" : undefined} />
+              <Row label="Due before this receipt" value={money(taka(invoiceDueP))} />
+              <Row label="Due after this receipt" value={money(taka(dueAfterReceiptP))} strong />
             </dl>
           )}
           <dl className="mt-3 grid gap-1.5 text-sm">

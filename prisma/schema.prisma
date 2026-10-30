@@ -694,6 +694,7 @@ model ProductVariation {
   barcode        String?      @db.VarChar(80)
   unitWeight     Decimal      @default(0) @db.Decimal(12, 4)
   salePrice      Decimal      @default(0) @db.Decimal(15, 2)
+  purchasePrice  Decimal?     @db.Decimal(15, 2)
   wholesalePrice Decimal?     @db.Decimal(15, 2)
   reorderLevel   Decimal      @default(0) @db.Decimal(15, 3)
   status         RecordStatus @default(active)

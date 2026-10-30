@@ -66,6 +66,7 @@ export const variationSchema = z.object({
   barcode: optText(80),
   unitWeight: z.coerce.number({ error: "Enter a number" }).min(0, "Cannot be negative").max(1e6).default(0),
   salePrice: amountField(),
+  purchasePrice: optAmount,
   wholesalePrice: optAmount,
   reorderLevel: amountField(1e9),
   openingQuantity: optionalAmount(1e9),

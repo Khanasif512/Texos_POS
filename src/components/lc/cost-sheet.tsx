@@ -28,6 +28,7 @@ import { date, money } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import {
   costItemSchema,
+  LC_COST_ENTRY_TYPES,
   LC_COST_TYPE_LABEL,
   LC_COST_TYPES,
   type CostItemInput,
@@ -235,7 +236,7 @@ export function CostSheet({
   )
 }
 
-function CostItemDialog({ lcId, row, onClose }: { lcId: string; row: CostItemRow | null; onClose: () => void }) {
+export function CostItemDialog({ lcId, row, onClose }: { lcId: string; row: CostItemRow | null; onClose: () => void }) {
   const router = useRouter()
   const { register, handleSubmit, formState, setError, control } = useForm<CostItemInput, unknown, CostItemOutput>({
     resolver: zodResolver(costItemSchema),
@@ -244,6 +245,9 @@ function CostItemDialog({ lcId, row, onClose }: { lcId: string; row: CostItemRow
       : { costType: "freight", description: "", entryDate: new Date().toLocaleDateString("en-CA") },
   })
   const e = formState.errors
+  const selectableCostTypes: readonly LcCostType[] = row
+    ? [...new Set<LcCostType>([row.costType, ...LC_COST_ENTRY_TYPES])]
+    : LC_COST_ENTRY_TYPES
   const onSubmit = handleSubmit(async (v) => {
     try {
       if (row) await api.patch(`/api/v1/lc/${lcId}/cost-items/${row.id}`, v)
@@ -260,7 +264,9 @@ function CostItemDialog({ lcId, row, onClose }: { lcId: string; row: CostItemRow
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{row ? "Edit cost item" : "Add cost item"}</DialogTitle>
-          <DialogDescription>Amounts are in BDT. Each charge is kept as its own row for audit.</DialogDescription>
+          <DialogDescription>
+            Amounts are in BDT. Each charge is kept as its own row, then allocated proportionally across product lines by total weight or quantity basis.
+          </DialogDescription>
         </DialogHeader>
         <form id="cost-item-form" onSubmit={onSubmit} className="grid gap-4 sm:grid-cols-2" noValidate>
           <Field label="Cost type" error={e.costType?.message} required className="sm:col-span-2">
@@ -273,7 +279,7 @@ function CostItemDialog({ lcId, row, onClose }: { lcId: string; row: CostItemRow
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {LC_COST_TYPES.map((t) => (
+                    {selectableCostTypes.map((t) => (
                       <SelectItem key={t} value={t}>
                         {LC_COST_TYPE_LABEL[t]}
                       </SelectItem>

@@ -30,7 +30,7 @@ import { CategoryDialog, type CategoryOption } from "./category-dialog"
 
 /** Column template of the variations grid on large screens (stacked cards below lg). */
 const GRID =
-  "lg:grid-cols-[minmax(150px,1.6fr)_minmax(140px,1.3fr)_minmax(110px,1fr)_108px_108px_84px_52px_36px]"
+  "lg:grid-cols-[minmax(150px,1.5fr)_minmax(130px,1.2fr)_minmax(100px,0.9fr)_minmax(100px,1fr)_minmax(100px,1fr)_minmax(100px,1fr)_84px_52px_36px]"
 
 const blankVariation = (): VariationInput => ({
   name: "",
@@ -38,6 +38,7 @@ const blankVariation = (): VariationInput => ({
   barcode: "",
   unitWeight: 0,
   salePrice: 0,
+  purchasePrice: "",
   wholesalePrice: "",
   reorderLevel: 0,
   openingQuantity: "",
@@ -327,6 +328,7 @@ export function ProductForm({
           <span>SKU</span>
           <span className="text-right">Weight (kg)</span>
           <span className="text-right">Sale price ৳</span>
+          <span className="text-right">Purchase price ৳</span>
           <span className="text-right">Wholesale ৳</span>
           <span className="text-right">Reorder at</span>
           <span className="text-center">Active</span>
@@ -348,6 +350,18 @@ export function ProductForm({
               </Cell>
               <Cell label="Sale price ৳" error={ve?.salePrice?.message}>
                 <Input type="number" step="0.01" min="0" inputMode="decimal" className="text-right" aria-label="Sale price" {...register(`variations.${i}.salePrice`)} />
+              </Cell>
+              <Cell label="Purchase price ৳" error={ve?.purchasePrice?.message}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  inputMode="decimal"
+                  className="text-right"
+                  placeholder="—"
+                  aria-label="Purchase price"
+                  {...register(`variations.${i}.purchasePrice`)}
+                />
               </Cell>
               <Cell label="Wholesale ৳" error={ve?.wholesalePrice?.message}>
                 <Input

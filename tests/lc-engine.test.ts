@@ -75,6 +75,26 @@ describe("LC landed-cost engine — SRS §8 worked example", () => {
     expect(Number(a.extraCostTotal.div(b.extraCostTotal).toFixed(4))).toBeCloseTo(1000 / 800, 4)
   })
 
+  it("allocates each enabled extra cost head by the selected weight or quantity basis", () => {
+    const input = {
+      ...srsExample("weight"),
+      costItems: [
+        { costType: "freight", amount: 100 },
+        { costType: "customs_duty", amount: 200 },
+        { costType: "delivery", amount: 300 },
+        { costType: "other", amount: 300 },
+      ],
+    }
+    const byWeight = calculateLandedCost(input)
+    expect(byWeight.lines.map((line) => line.extraCostTotal.toFixed(2))).toEqual(["500.00", "400.00"])
+
+    const byQuantity = calculateLandedCost({ ...input, basis: "quantity" })
+    expect(byQuantity.lines.map((line) => line.extraCostTotal.toFixed(2))).toEqual(["600.00", "300.00"])
+
+    const breakdown = lineBreakdown(byWeight.lines[0], input.costItems)
+    expect(breakdown.items.map((item) => item.lineAmount.toFixed(2))).toEqual(["55.56", "111.11", "166.67", "166.67"])
+  })
+
   it("explains per-line contributions of every cost item (acceptance criterion 3)", () => {
     const input = srsExample("weight")
     const r = calculateLandedCost(input)

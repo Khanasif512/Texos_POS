@@ -46,6 +46,9 @@ export const LC_COST_TYPES = [
 ] as const
 export type LcCostType = (typeof LC_COST_TYPES)[number]
 
+/** Cost heads available for new manual LC cost entries. */
+export const LC_COST_ENTRY_TYPES = ["freight", "customs_duty", "delivery", "other"] as const satisfies readonly LcCostType[]
+
 export const LC_COST_TYPE_LABEL: Record<LcCostType, string> = {
   lc_opening: "LC opening cost",
   freight: "Freight",
@@ -115,8 +118,10 @@ export const costItemSchema = z.object({
   description: optText(255),
   entryDate: isoDate,
 })
+export const newCostItemSchema = costItemSchema.extend({ costType: z.enum(LC_COST_ENTRY_TYPES) })
 export type CostItemInput = z.input<typeof costItemSchema>
 export type CostItemOutput = z.output<typeof costItemSchema>
+export type NewCostItemOutput = z.output<typeof newCostItemSchema>
 
 /** Save calculation / finalize (LC-04..07). Reason is required when replacing an existing calculation. */
 export const calculationSchema = z.object({

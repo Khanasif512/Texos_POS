@@ -1,13 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Plus, ReceiptText } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ServerTable } from "@/components/shared/server-table"
 import { BranchFilter, SelectFilter } from "@/components/shared/filters"
 import { useCan } from "@/components/app/app-context"
 import { amount, date, money } from "@/lib/format"
 import { LC_STATUSES, LC_STATUS_LABEL } from "@/lib/validation/lc"
+import { CostItemDialog } from "./cost-sheet"
 import { LcStatusBadge } from "./lc-status"
 import { rate } from "./lc-format"
 
@@ -44,38 +46,41 @@ export function LcTable({
   showCost: boolean
 }) {
   const canCreate = useCan("lc.create")
+  const canUpdate = useCan("lc.update")
+  const [costLcId, setCostLcId] = useState<string | null>(null)
   return (
-    <ServerTable
-      rows={rows}
-      total={total}
-      page={page}
-      limit={limit}
-      rowKey={(r) => r.id}
-      onRowHref={(r) => `/app/lc/${r.id}`}
-      searchPlaceholder="Search LC no., bank or supplier…"
-      filters={
-        <>
-          <SelectFilter name="status" placeholder="All statuses" options={LC_STATUSES.map((s) => ({ value: s, label: LC_STATUS_LABEL[s] }))} />
-          {suppliers.length > 0 && <SelectFilter name="supplierId" placeholder="All suppliers" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />}
-          <BranchFilter />
-        </>
-      }
-      actions={
-        canCreate && (
-          <Button asChild>
-            <Link href="/app/lc/new">
-              <Plus /> New LC
-            </Link>
-          </Button>
-        )
-      }
-      empty={
-        <div className="space-y-1">
-          <p className="font-medium text-foreground">No LCs yet</p>
-          <p>Open an LC to track an import shipment and calculate its landed cost per unit.</p>
-        </div>
-      }
-      columns={[
+    <>
+      <ServerTable
+        rows={rows}
+        total={total}
+        page={page}
+        limit={limit}
+        rowKey={(r) => r.id}
+        onRowHref={(r) => `/app/lc/${r.id}`}
+        searchPlaceholder="Search LC no., bank or supplier…"
+        filters={
+          <>
+            <SelectFilter name="status" placeholder="All statuses" options={LC_STATUSES.map((s) => ({ value: s, label: LC_STATUS_LABEL[s] }))} />
+            {suppliers.length > 0 && <SelectFilter name="supplierId" placeholder="All suppliers" options={suppliers.map((s) => ({ value: s.id, label: s.name }))} />}
+            <BranchFilter />
+          </>
+        }
+        actions={
+          canCreate && (
+            <Button asChild>
+              <Link href="/app/lc/new">
+                <Plus /> New LC
+              </Link>
+            </Button>
+          )
+        }
+        empty={
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">No LCs yet</p>
+            <p>Open an LC to track an import shipment and calculate its landed cost per unit.</p>
+          </div>
+        }
+        columns={[
         {
           key: "lcNumber",
           header: "LC no.",
@@ -155,7 +160,31 @@ export function LcTable({
               },
             ]
           : []),
-      ]}
-    />
+        ...(canUpdate
+          ? [
+              {
+                key: "costAction",
+                header: "Cost heads",
+                align: "right" as const,
+                cell: (r: LcRow) =>
+                  r.status !== "closed" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCostLcId(r.id)}
+                      aria-label={`Add cost to LC ${r.lcNumber}`}
+                    >
+                      <ReceiptText /> Add cost
+                    </Button>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">Closed</span>
+                  ),
+              },
+            ]
+          : []),
+        ]}
+      />
+      {costLcId && <CostItemDialog lcId={costLcId} row={null} onClose={() => setCostLcId(null)} />}
+    </>
   )
 }

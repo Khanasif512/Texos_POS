@@ -67,7 +67,7 @@ export default async function AuditPrintPage({ searchParams }: { searchParams: P
           <header className="mb-6 overflow-hidden rounded-xl border border-slate-200">
             <div className="flex items-center justify-between gap-8 border-b-4 border-cyan-400 bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 px-7 py-6 text-white">
               <div className="flex min-w-0 items-center gap-3">
-                {ctx.company.logoUrl && (
+                {ctx.company.logoUrl ? (
                   <Image
                     src={ctx.company.logoUrl}
                     alt={`${ctx.company.name} logo`}
@@ -76,11 +76,13 @@ export default async function AuditPrintPage({ searchParams }: { searchParams: P
                     className="size-[52px] shrink-0 rounded-lg border border-white/20 bg-white object-contain p-1.5"
                     unoptimized
                   />
+                ) : (
+                  <LogoMark className="size-[52px] shrink-0 rounded-lg" />
                 )}
                 <div className="min-w-0">
                   <p className="truncate text-lg font-bold tracking-tight">{ctx.company.name}</p>
                   <div className="mt-2 flex items-center gap-1.5">
-                    <LogoMark className="size-4 rounded-[4px]" />
+                    
                     <p className="text-[9px] font-semibold tracking-[0.16em] uppercase">
                       <span className="text-white">Texon</span><span className="text-cyan-300">POS</span>
                       <span className="ml-2 font-medium tracking-[0.12em] text-slate-300">WORKSPACE INTELLIGENCE</span>
@@ -90,7 +92,7 @@ export default async function AuditPrintPage({ searchParams }: { searchParams: P
               </div>
               <div className="shrink-0 border-l border-white/20 pl-7 text-right">
                 <p className="text-[9px] font-bold tracking-[0.2em] text-cyan-300 uppercase">Governance · {generatedAt.getFullYear()}</p>
-                <h1 className="mt-1 text-3xl font-semibold tracking-tight">Audit activity</h1>
+                <h1 className="mt-1 text-3xl font-semibold tracking-tight">AUDIT ACTIVITY</h1>
                 <p className="mt-1 text-[10px] text-slate-300">Generated {dateTime(generatedAt)}</p>
               </div>
             </div>
